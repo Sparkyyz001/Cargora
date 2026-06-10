@@ -1,0 +1,283 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-geist-sans), 'Geist Fallback';
+  --font-dm-serif: "Instrument Serif", serif;
+  --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Warm ivory surface with terracotta accent — every neutral carries
+     a touch of amber (hue ~60-75) so it sits in the same family as
+     the terracotta primary (hue ~40), instead of a cold zero-chroma gray */
+  --background: oklch(0.97 0.013 75);
+  --foreground: oklch(0.27 0.022 50);
+  --card: oklch(0.995 0.009 75);
+  --card-foreground: oklch(0.27 0.022 50);
+  --popover: oklch(0.995 0.009 75);
+  --popover-foreground: oklch(0.27 0.022 50);
+  --primary: oklch(0.58 0.16 40);
+  --primary-foreground: oklch(0.99 0.006 75);
+  --secondary: oklch(0.94 0.018 70);
+  --secondary-foreground: oklch(0.3 0.025 50);
+  --muted: oklch(0.93 0.017 68);
+  --muted-foreground: oklch(0.53 0.027 50);
+  --accent: oklch(0.91 0.05 55);
+  --accent-foreground: oklch(0.4 0.13 40);
+  --destructive: oklch(0.577 0.215 27.325);
+  --border: oklch(0.88 0.02 65);
+  --input: oklch(0.91 0.018 65);
+  --ring: oklch(0.58 0.16 40);
+  --chart-1: oklch(0.58 0.16 40);
+  --chart-2: oklch(0.66 0.15 55);
+  --chart-3: oklch(0.74 0.12 65);
+  --chart-4: oklch(0.6 0.05 50);
+  --chart-5: oklch(0.45 0.035 45);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.24 0.018 50);
+  --sidebar-foreground: oklch(0.92 0.014 70);
+  --sidebar-primary: oklch(0.6 0.15 40);
+  --sidebar-primary-foreground: oklch(0.99 0.006 75);
+  --sidebar-accent: oklch(0.3 0.02 50);
+  --sidebar-accent-foreground: oklch(0.99 0.006 75);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.6 0.15 40);
+}
+
+.dark {
+  --background: oklch(0.19 0.014 50);
+  --foreground: oklch(0.95 0.013 70);
+  --card: oklch(0.245 0.016 50);
+  --card-foreground: oklch(0.95 0.013 70);
+  --popover: oklch(0.245 0.016 50);
+  --popover-foreground: oklch(0.95 0.013 70);
+  --primary: oklch(0.66 0.16 42);
+  --primary-foreground: oklch(0.99 0.006 75);
+  --secondary: oklch(0.3 0.018 50);
+  --secondary-foreground: oklch(0.95 0.013 70);
+  --muted: oklch(0.3 0.018 50);
+  --muted-foreground: oklch(0.72 0.022 60);
+  --accent: oklch(0.36 0.06 45);
+  --accent-foreground: oklch(0.93 0.02 65);
+  --destructive: oklch(0.704 0.18 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.66 0.16 42);
+  --chart-1: oklch(0.66 0.16 42);
+  --chart-2: oklch(0.7 0.15 56);
+  --chart-3: oklch(0.76 0.12 66);
+  --chart-4: oklch(0.6 0.05 50);
+  --chart-5: oklch(0.5 0.035 45);
+  --sidebar: oklch(0.16 0.014 50);
+  --sidebar-foreground: oklch(0.92 0.013 70);
+  --sidebar-primary: oklch(0.66 0.16 42);
+  --sidebar-primary-foreground: oklch(0.99 0.006 75);
+  --sidebar-accent: oklch(0.27 0.018 50);
+  --sidebar-accent-foreground: oklch(0.95 0.013 70);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.66 0.16 42);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Брендовый шрифт для wordmark в "liquid glass" футере лендинга — */
+/* подключается точечно через .font-display, не трогая шрифт всего сайта (Geist Sans). */
+@font-face {
+  font-family: "Helvetica Regular";
+  src: url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.eot");
+  src: url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.eot?#iefix") format("embedded-opentype"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.woff2") format("woff2"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.woff") format("woff"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.ttf") format("truetype"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.svg#Helvetica Regular") format("svg");
+}
+
+.font-display {
+  font-family: "Helvetica Regular", var(--font-sans);
+}
+
+/* Landing page display font */
+.lp-display {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Subtle dot texture for landing cards */
+.lp-texture {
+  background-image:
+    radial-gradient(rgba(14,17,20,0.035) 1px, transparent 1px),
+    radial-gradient(rgba(14,17,20,0.025) 1px, transparent 1px);
+  background-size: 6px 6px, 6px 6px;
+  background-position: 0 0, 3px 3px;
+}
+
+/* "Liquid glass" окантовка для футера-витрины на лендинге */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.01);
+  background-blend-mode: luminosity;
+  /* Лёгкий блюр — поверх видео backdrop-filter пересчитывается на каждый кадр,
+     поэтому держим радиус минимальным, чтобы не грузить GPU */
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  will-change: backdrop-filter;
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+/* Анимированный градиент для CTA-карточки в FAQ-секции — тёплая терракотово-янтарная
+   палитра в духе бренда Cargora (вместо случайных неоновых цветов из исходного шаблона).
+   @property делает интерполяцию кастомных свойств плавной и не требует JS/canvas. */
+@property --c5-x1 { syntax: '<percentage>'; inherits: false; initial-value: 10%; }
+@property --c5-y1 { syntax: '<percentage>'; inherits: false; initial-value: 10%; }
+@property --c5-x2 { syntax: '<percentage>'; inherits: false; initial-value: 90%; }
+@property --c5-y2 { syntax: '<percentage>'; inherits: false; initial-value: 10%; }
+@property --c5-x3 { syntax: '<percentage>'; inherits: false; initial-value: 10%; }
+@property --c5-y3 { syntax: '<percentage>'; inherits: false; initial-value: 90%; }
+@property --c5-x4 { syntax: '<percentage>'; inherits: false; initial-value: 90%; }
+@property --c5-y4 { syntax: '<percentage>'; inherits: false; initial-value: 90%; }
+@property --c5-x5 { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+@property --c5-y5 { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+@property --c5-s1 { syntax: '<percentage>'; inherits: false; initial-value: 55%; }
+@property --c5-s2 { syntax: '<percentage>'; inherits: false; initial-value: 55%; }
+@property --c5-s3 { syntax: '<percentage>'; inherits: false; initial-value: 55%; }
+@property --c5-s4 { syntax: '<percentage>'; inherits: false; initial-value: 55%; }
+@property --c5-s5 { syntax: '<percentage>'; inherits: false; initial-value: 65%; }
+
+.c5-animated-gradient {
+  /* Цвета берём прямо из палитры бренда (--sidebar и --chart-*), а не "от себя" —
+     неоновые/контрастные оттенки смотрелись чужеродным ярким пятном на тёплом
+     приглушённом фоне сайта. Так карточка автоматически совпадает по тону
+     с остальным интерфейсом и подстраивается под тёмную тему. */
+  background-color: var(--sidebar);
+  background-image:
+    radial-gradient(circle at var(--c5-x1) var(--c5-y1), var(--chart-3) 0px, transparent var(--c5-s1)),
+    radial-gradient(circle at var(--c5-x2) var(--c5-y2), var(--chart-2) 0px, transparent var(--c5-s2)),
+    radial-gradient(circle at var(--c5-x3) var(--c5-y3), var(--chart-5) 0px, transparent var(--c5-s3)),
+    radial-gradient(circle at var(--c5-x4) var(--c5-y4), var(--chart-1) 0px, transparent var(--c5-s4)),
+    radial-gradient(circle at var(--c5-x5) var(--c5-y5), var(--chart-4) 0px, transparent var(--c5-s5));
+  animation:
+    c5-blob1 5s ease-in-out infinite,
+    c5-blob2 6s ease-in-out infinite,
+    c5-blob3 5.5s ease-in-out infinite,
+    c5-blob4 6.5s ease-in-out infinite,
+    c5-blob5 4s ease-in-out infinite,
+    c5-size1 3.5s ease-in-out infinite,
+    c5-size2 4.2s ease-in-out infinite,
+    c5-size3 3.8s ease-in-out infinite,
+    c5-size4 4.6s ease-in-out infinite,
+    c5-size5 3s ease-in-out infinite;
+}
+
+@keyframes c5-blob1 {
+  0%, 100% { --c5-x1: 5%;  --c5-y1: 5%;  }
+  25%      { --c5-x1: 45%; --c5-y1: 20%; }
+  50%      { --c5-x1: 30%; --c5-y1: 55%; }
+  75%      { --c5-x1: 0%;  --c5-y1: 30%; }
+}
+@keyframes c5-blob2 {
+  0%, 100% { --c5-x2: 95%; --c5-y2: 5%;  }
+  33%      { --c5-x2: 55%; --c5-y2: 35%; }
+  66%      { --c5-x2: 80%; --c5-y2: 65%; }
+}
+@keyframes c5-blob3 {
+  0%, 100% { --c5-x3: 5%;  --c5-y3: 95%; }
+  40%      { --c5-x3: 45%; --c5-y3: 65%; }
+  70%      { --c5-x3: 25%; --c5-y3: 100%; }
+}
+@keyframes c5-blob4 {
+  0%, 100% { --c5-x4: 95%; --c5-y4: 95%; }
+  30%      { --c5-x4: 60%; --c5-y4: 70%; }
+  60%      { --c5-x4: 100%; --c5-y4: 50%; }
+}
+@keyframes c5-blob5 {
+  0%, 100% { --c5-x5: 50%; --c5-y5: 50%; }
+  25%      { --c5-x5: 70%; --c5-y5: 30%; }
+  50%      { --c5-x5: 40%; --c5-y5: 70%; }
+  75%      { --c5-x5: 30%; --c5-y5: 40%; }
+}
+
+@keyframes c5-size1 { 0%, 100% { --c5-s1: 45%; } 50% { --c5-s1: 80%; } }
+@keyframes c5-size2 { 0%, 100% { --c5-s2: 45%; } 50% { --c5-s2: 85%; } }
+@keyframes c5-size3 { 0%, 100% { --c5-s3: 45%; } 50% { --c5-s3: 78%; } }
+@keyframes c5-size4 { 0%, 100% { --c5-s4: 45%; } 50% { --c5-s4: 82%; } }
+@keyframes c5-size5 { 0%, 100% { --c5-s5: 50%; } 50% { --c5-s5: 85%; } }
+
+@keyframes fadeOut {
+  0%   { opacity: 1; }
+  60%  { opacity: 0.4; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c5-animated-gradient { animation: none; }
+}
+
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 20%,
+    rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%,
+    rgba(255,255,255,0.15) 80%, rgba(255,255,255,0.45) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}

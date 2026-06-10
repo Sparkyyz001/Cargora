@@ -1,0 +1,18 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="180" height="180" rx="40" fill="#1e1610"/>
+  <!-- Anchor icon — Cargora brand -->
+  <!-- Circle top -->
+  <circle cx="90" cy="58" r="12" stroke="#c2571a" stroke-width="7" fill="none"/>
+  <!-- Vertical bar -->
+  <line x1="90" y1="70" x2="90" y2="130" stroke="#c2571a" stroke-width="7" stroke-linecap="round"/>
+  <!-- Horizontal bar -->
+  <line x1="62" y1="93" x2="118" y2="93" stroke="#c2571a" stroke-width="7" stroke-linecap="round"/>
+  <!-- Left arc -->
+  <path d="M62 93 Q44 93 44 115 Q44 130 62 130" stroke="#c2571a" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <!-- Right arc -->
+  <path d="M118 93 Q136 93 136 115 Q136 130 118 130" stroke="#c2571a" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <!-- Left tip dot -->
+  <circle cx="62" cy="130" r="5" fill="#c2571a"/>
+  <!-- Right tip dot -->
+  <circle cx="118" cy="130" r="5" fill="#c2571a"/>
+</svg>
