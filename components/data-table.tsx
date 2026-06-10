@@ -438,7 +438,7 @@ export function DataTable({
   const driverOptions = React.useMemo(
     () => {
       const fromVehicles = vehicles.map((v) => v.driver).filter(Boolean) as string[]
-      return fromVehicles.length > 0 ? fromVehicles : DRIVER_OPTIONS
+      return fromVehicles.length > 0 ? fromVehicles : CARRIER_OPTIONS
     },
     [vehicles]
   )
@@ -855,7 +855,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-function TableCellViewer({ item, drivers = DRIVER_OPTIONS }: { item: z.infer<typeof schema>; drivers?: string[] }) {
+function TableCellViewer({ item, drivers = CARRIER_OPTIONS }: { item: z.infer<typeof schema>; drivers?: string[] }) {
   const isMobile = useIsMobile()
 
   return (
