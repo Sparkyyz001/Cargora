@@ -84,11 +84,7 @@ export default function RegisterPage() {
     if (!firstName.trim()) { toast.error("Введите имя"); return }
     if (!lastName.trim()) { toast.error("Введите фамилию"); return }
     if (!EMAIL_REGEX.test(email.trim())) { toast.error("Введите рабочий email (например, name@mail.kz)"); return }
-    if (password.length < 8) { toast.error("Пароль минимум 8 символов"); return }
-    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-      toast.error("Пароль должен содержать буквы и цифры")
-      return
-    }
+    if (password.length < 6) { toast.error("Пароль минимум 6 символов"); return }
     if (password !== confirm) { toast.error("Пароли не совпадают"); return }
 
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
