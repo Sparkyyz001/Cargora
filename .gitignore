@@ -23,9 +23,6 @@ node_modules/
 Thumbs.db
 *.tsbuildinfo
 
-# Large video assets — host on CDN
-public/*.mp4
-
 # Build output
 out/
 dist/
