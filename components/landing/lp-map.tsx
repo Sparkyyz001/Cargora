@@ -107,6 +107,11 @@ const STATS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function LpMap() {
+  // Видео 26 МБ — монтируем только когда секция близко к вьюпорту,
+  // чтобы не тормозить первую загрузку страницы
+  const videoWrapRef = useRef<HTMLDivElement>(null)
+  const videoInView = useInView(videoWrapRef, { once: true, margin: "600px" })
+
   return (
     <section
       id="stats"
@@ -189,24 +194,27 @@ export function LpMap() {
           </motion.div>
 
           {/* ── Right column — triangle-masked video ── */}
-          <div className="flex justify-center items-center shrink-0 lg:w-1/2 lg:pr-12 xl:pr-20">
+          <div ref={videoWrapRef} className="flex justify-center items-center shrink-0 lg:w-1/2 lg:pr-12 xl:pr-20">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1.15 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="w-full max-w-[460px] lg:max-w-none lg:w-[105%] aspect-square origin-center"
+              className="w-full max-w-[460px] lg:max-w-none lg:w-[105%] aspect-square origin-center bg-sidebar"
               style={maskStyle}
             >
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-              >
-                <source src="/caspian-bg.mp4" type="video/mp4" />
-              </video>
+              {videoInView && (
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="w-full h-full object-cover"
+                >
+                  <source src="/caspian-bg.mp4" type="video/mp4" />
+                </video>
+              )}
             </motion.div>
           </div>
 

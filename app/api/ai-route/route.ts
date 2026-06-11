@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 const FERRIES = [
   {
@@ -117,6 +118,14 @@ const LAND_CARRIERS = [
 ]
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 })
+  }
+
   const body = await req.json()
   const { cargo_type, weight, volume, recipient_address, delivery_date, transport_type } = body
 

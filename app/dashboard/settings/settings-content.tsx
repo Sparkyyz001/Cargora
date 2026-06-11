@@ -6,6 +6,8 @@ import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
 import { updateProfile } from "@/lib/actions/profile"
+import type { BillingData } from "@/lib/actions/billing"
+import { BillingTab } from "./billing-tab"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -36,7 +38,7 @@ type ProfileData = {
   phone: string
 } | null
 
-export function SettingsContent({ profile }: { profile: ProfileData }) {
+export function SettingsContent({ profile, billing }: { profile: ProfileData; billing: BillingData }) {
   const { theme, setTheme } = useTheme()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") ?? "profile"
@@ -145,57 +147,11 @@ export function SettingsContent({ profile }: { profile: ProfileData }) {
 
         {/* Тариф и оплата */}
         <TabsContent value="billing">
-          <Card>
-            <CardHeader>
-              <CardTitle>Тариф и оплата</CardTitle>
-              <CardDescription>Управление подпиской и платёжными данными</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-              <div className="rounded-lg border p-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Текущий тариф</p>
-                  <p className="text-sm text-muted-foreground mt-1">Действует до 6 июля 2026</p>
-                </div>
-                <Badge className="text-sm px-3 py-1">Бизнес</Badge>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Способ оплаты</Label>
-                <div className="rounded-lg border p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded bg-muted px-2 py-1 text-xs font-bold">VISA</div>
-                    <span className="text-sm">•••• •••• •••• 4242</span>
-                  </div>
-                  <Button variant="outline" size="sm">Изменить</Button>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>История платежей</Label>
-                <div className="rounded-lg border divide-y">
-                  {[
-                    { date: "06.06.2026", amount: "4 900 ₽", status: "Оплачен" },
-                    { date: "06.05.2026", amount: "4 900 ₽", status: "Оплачен" },
-                    { date: "06.04.2026", amount: "4 900 ₽", status: "Оплачен" },
-                  ].map((p) => (
-                    <div key={p.date} className="flex items-center justify-between px-4 py-3 text-sm">
-                      <span className="text-muted-foreground">{p.date}</span>
-                      <span className="font-medium">{p.amount}</span>
-                      <Badge variant="outline" className="text-green-600 border-green-200">
-                        {p.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="gap-2">
-              <Button variant="outline" onClick={() => toast.info("Переход к смене тарифа")}>
-                Сменить тариф
-              </Button>
-              <Button variant="destructive" onClick={() => toast.warning("Отмена подписки — обратитесь в поддержку")}>
-                Отменить подписку
-              </Button>
-            </CardFooter>
-          </Card>
+          <BillingTab
+            subscription={billing.subscription}
+            payments={billing.payments}
+            setupError={billing.setupError}
+          />
         </TabsContent>
 
         {/* Система */}

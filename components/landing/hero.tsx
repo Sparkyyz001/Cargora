@@ -17,7 +17,7 @@ const item = {
 
 export function Hero() {
   return (
-    <section className="relative isolate flex min-h-svh flex-col items-center justify-center overflow-hidden pb-16 pt-20">
+    <section className="relative isolate flex min-h-svh flex-col items-center justify-center overflow-hidden bg-slate-950 pb-16 pt-20">
 
       {/* Фоновое видео */}
       <video
@@ -25,7 +25,7 @@ export function Hero() {
         muted
         loop
         playsInline
-        preload="auto"
+        preload="metadata"
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover"
         src="/ferry-bg.mp4"

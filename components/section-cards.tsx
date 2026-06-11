@@ -13,8 +13,25 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export function SectionCards() {
+export type DashboardStats = {
+  active: number
+  inTransit: number
+  delivered: number
+  totalWeightTons: number
+  createdToday: number
+  total: number
+}
+
+function pct(part: number, total: number) {
+  if (total === 0) return 0
+  return Math.round((part / total) * 100)
+}
+
+export function SectionCards({ stats }: { stats: DashboardStats }) {
   const { t } = useLang()
+
+  const inTransitPct = pct(stats.inTransit, stats.total)
+  const deliveredPct = pct(stats.delivered, stats.total)
 
   return (
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
@@ -22,12 +39,12 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>{t.cards.activeOrders}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            1 248
+            {stats.active.toLocaleString("ru-RU")}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
               <IconTrendingUp />
-              +12.5%
+              +{stats.createdToday}
             </Badge>
           </CardAction>
         </CardHeader>
@@ -43,18 +60,18 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>{t.cards.inTransit}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            312
+            {stats.inTransit.toLocaleString("ru-RU")}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingDown />
-              -4%
+              {inTransitPct >= 50 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {inTransitPct}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            {t.cards.lessPause} <IconTrendingDown className="size-4" />
+            {t.cards.lessPause}
           </div>
           <div className="text-muted-foreground">{t.cards.transitDesc}</div>
         </CardFooter>
@@ -64,12 +81,12 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>{t.cards.onTime}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            96,4%
+            {stats.delivered.toLocaleString("ru-RU")}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
               <IconTrendingUp />
-              +2.1%
+              {deliveredPct}%
             </Badge>
           </CardAction>
         </CardHeader>
@@ -85,12 +102,12 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>{t.cards.revenue}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            ₸ 84 млн
+            {stats.totalWeightTons.toLocaleString("ru-RU")} т
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
               <IconTrendingUp />
-              +9.3%
+              {stats.total.toLocaleString("ru-RU")}
             </Badge>
           </CardAction>
         </CardHeader>

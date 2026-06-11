@@ -145,8 +145,21 @@ export async function seedDemoOrders() {
     { order_number: "МАН-00171", cargo_type: "Контейнер ТМТМ", status: "В пути" as const, weight: 20500, volume: 34, driver: "Нурлан Б.", sender_name: "KTZE (KTZ Express)", sender_address: "Актау, Морпорт, прич. 5", recipient_name: "ADY Container", recipient_address: "Баку, порт Алят" },
   ]
 
+  // Разносим даты создания по последним ~6 неделям, чтобы график
+  // дневной динамики на дашборде не был одним всплеском «сегодня»
+  const offsets = [0, 1, 2, 3, 5, 7, 9, 12, 15, 18, 22, 26, 31, 37, 43]
+  const daysAgo = (n: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() - n)
+    return d.toISOString()
+  }
+
   const { error } = await supabase.from("orders").insert(
-    demoOrders.map((o) => ({ ...o, user_id: user.id }))
+    demoOrders.map((o, i) => ({
+      ...o,
+      user_id: user.id,
+      created_at: daysAgo(offsets[i % offsets.length]),
+    }))
   )
 
   if (error) return { error: error.message }

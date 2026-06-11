@@ -1,15 +1,19 @@
+import dynamic from "next/dynamic"
+
 import { Navbar1 } from "@/components/ui/navbar1"
 import { Hero } from "@/components/landing/hero"
 import { LogoCloud } from "@/components/landing/logo-cloud"
-import { LpMap } from "@/components/landing/lp-map"
-import { LpServices } from "@/components/landing/lp-services"
-import { LpSolutions } from "@/components/landing/lp-solutions"
-import { LpBento } from "@/components/landing/lp-bento"
-import { LpProcess } from "@/components/landing/lp-process"
-import { Testimonials } from "@/components/landing/testimonials"
-import { Pricing } from "@/components/landing/pricing"
-import { ReadyCta } from "@/components/landing/ready-cta"
-import { Footer } from "@/components/landing/footer"
+
+// Секции ниже первого экрана — отдельные чанки, не блокируют первую загрузку
+const LpMap = dynamic(() => import("@/components/landing/lp-map").then((m) => m.LpMap))
+const LpServices = dynamic(() => import("@/components/landing/lp-services").then((m) => m.LpServices))
+const LpSolutions = dynamic(() => import("@/components/landing/lp-solutions").then((m) => m.LpSolutions))
+const LpBento = dynamic(() => import("@/components/landing/lp-bento").then((m) => m.LpBento))
+const LpProcess = dynamic(() => import("@/components/landing/lp-process").then((m) => m.LpProcess))
+const Testimonials = dynamic(() => import("@/components/landing/testimonials").then((m) => m.Testimonials))
+const Pricing = dynamic(() => import("@/components/landing/pricing").then((m) => m.Pricing))
+const ReadyCta = dynamic(() => import("@/components/landing/ready-cta").then((m) => m.ReadyCta))
+const Footer = dynamic(() => import("@/components/landing/footer").then((m) => m.Footer))
 
 export default function Page() {
   return (

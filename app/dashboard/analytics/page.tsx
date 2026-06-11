@@ -1,3 +1,10 @@
+import { getOrders } from "@/lib/actions/orders"
+import { DEMO_BASELINE } from "@/lib/demo-baseline"
+import {
+  computeDailySeries,
+  computeOrderStats,
+  computeTopRoutes,
+} from "@/lib/order-stats"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { SectionCards } from "@/components/section-cards"
 import {
@@ -8,28 +15,34 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-const topRoutes = [
-  { route: "Порт Актау → Туркменбаши (паром)", orders: 412, share: 100 },
-  { route: "Порт Актау → Баку, порт Алят (паром)", orders: 318, share: 77 },
-  { route: "Бейнеу → Болашак КПП (авто)", orders: 256, share: 62 },
-  { route: "Актау → Алматы (авто/ж/д)", orders: 184, share: 45 },
-  { route: "Жанаозен → Актау → Атырау", orders: 127, share: 31 },
-]
+export default async function AnalyticsPage() {
+  const orders = await getOrders()
+  // Метрики = демо-подложка + реальные заказы (см. lib/demo-baseline.ts)
+  const statsOrders = [...DEMO_BASELINE, ...orders]
+  const stats = computeOrderStats(statsOrders)
+  const dailySeries = computeDailySeries(statsOrders)
+  const topRoutes = computeTopRoutes(statsOrders)
 
-export default function AnalyticsPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <SectionCards />
+      <SectionCards stats={stats} />
       <div className="px-4 lg:px-6">
-        <ChartAreaInteractive />
+        <ChartAreaInteractive data={dailySeries} />
       </div>
       <div className="px-4 lg:px-6">
         <Card>
           <CardHeader>
-            <CardTitle>Топ маршрутов Мангистау</CardTitle>
-            <CardDescription>Транзитные отправки через порт Актау, КПП Бейнеу и Болашак — июнь 2026</CardDescription>
+            <CardTitle>Топ маршрутов</CardTitle>
+            <CardDescription>
+              Самые загруженные направления по заказам вашей компании
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            {topRoutes.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Пока нет заказов с адресами — создайте заказ, и маршруты появятся здесь.
+              </p>
+            )}
             {topRoutes.map((r) => (
               <div key={r.route} className="flex flex-col gap-1">
                 <div className="flex justify-between text-sm">

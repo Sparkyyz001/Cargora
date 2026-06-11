@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
     }
   } catch (err) {
     // Supabase недоступен — безопасный fallback: редирект на логин
-    console.error("[middleware] Supabase auth error:", err)
+    console.error("[proxy] Supabase auth error:", err)
     if (request.nextUrl.pathname.startsWith("/dashboard")) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = "/login"

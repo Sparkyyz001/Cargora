@@ -1,4 +1,6 @@
 import { getOrders } from "@/lib/actions/orders"
+import { DEMO_BASELINE } from "@/lib/demo-baseline"
+import { computeDailySeries, computeOrderStats } from "@/lib/order-stats"
 import { createClient } from "@/lib/supabase/server"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { SectionCards } from "@/components/section-cards"
@@ -24,6 +26,11 @@ export default async function Page() {
   }
 
   const isCarrier = role === "carrier"
+  // Метрики = демо-подложка + реальные заказы: дашборд всегда наполнен,
+  // а каждый созданный заказ сразу двигает цифры
+  const statsOrders = [...DEMO_BASELINE, ...orders]
+  const stats = computeOrderStats(statsOrders)
+  const dailySeries = computeDailySeries(statsOrders)
 
   const tableData = orders.map((o) => ({
     id: o.id,
@@ -58,9 +65,9 @@ export default async function Page() {
               <DispatchView />
             </div>
           )}
-          <SectionCards />
+          <SectionCards stats={stats} />
           <div className="px-4 lg:px-6">
-            <ChartAreaInteractive />
+            <ChartAreaInteractive data={dailySeries} />
           </div>
           <DataTable data={tableData} />
         </div>

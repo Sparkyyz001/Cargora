@@ -320,7 +320,7 @@ export default function RegisterPage() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Минимум 8 символов, буквы и цифры"
+                    placeholder="Минимум 6 символов"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="new-password"
