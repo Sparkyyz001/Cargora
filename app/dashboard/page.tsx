@@ -3,6 +3,7 @@ import { DEMO_BASELINE } from "@/lib/demo-baseline"
 import { computeDailySeries, computeOrderStats } from "@/lib/order-stats"
 import { createClient } from "@/lib/supabase/server"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import { CheckpointLoadCards } from "@/components/checkpoint-load-cards"
 import { SectionCards } from "@/components/section-cards"
 import { DataTable } from "@/components/data-table"
 import { DispatchView } from "@/components/dispatch-view"
@@ -65,6 +66,7 @@ export default async function Page() {
               <DispatchView />
             </div>
           )}
+          <CheckpointLoadCards />
           <SectionCards stats={stats} />
           <div className="px-4 lg:px-6">
             <ChartAreaInteractive data={dailySeries} />

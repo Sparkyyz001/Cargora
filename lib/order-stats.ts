@@ -68,6 +68,36 @@ export type TopRoute = {
   share: number
 }
 
+export type CargoTypeStat = {
+  type: string
+  orders: number
+  tons: number
+  share: number
+}
+
+// Разбивка транзита по типам грузов (для регионального дашборда)
+export function computeCargoTypes(orders: Order[], limit = 7): CargoTypeStat[] {
+  const byType = new Map<string, { orders: number; kg: number }>()
+
+  for (const o of orders) {
+    const key = o.cargo_type || "Прочее"
+    const bucket = byType.get(key) ?? { orders: 0, kg: 0 }
+    bucket.orders += 1
+    bucket.kg += Number(o.weight) || 0
+    byType.set(key, bucket)
+  }
+
+  const sorted = [...byType.entries()].sort((a, b) => b[1].orders - a[1].orders).slice(0, limit)
+  const max = sorted[0]?.[1].orders ?? 0
+
+  return sorted.map(([type, b]) => ({
+    type,
+    orders: b.orders,
+    tons: Math.round(b.kg / 1000),
+    share: max === 0 ? 0 : Math.round((b.orders / max) * 100),
+  }))
+}
+
 function city(address: string | null) {
   if (!address) return null
   const first = address.split(",")[0].trim()
