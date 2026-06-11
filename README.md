@@ -6,7 +6,9 @@
 
 **ИИ-подбор рейсов · Реальный трекинг · 5 стран одним договором**
 
-[![Next.js](https://img.shields.io/badge/Next.js_15-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
+### 🌐 Живое демо: [cargora.vercel.app](https://cargora.vercel.app)
+
+[![Next.js](https://img.shields.io/badge/Next.js_16-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_v4-38BDF8?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
@@ -24,8 +26,12 @@
 
 **Ключевая ценность:**
 - Грузоотправитель создаёт заявку → ИИ за секунды подбирает оптимальный рейс (паром или автодоставка)
-- Перевозчик видит заявку на диспетчерском дашборде и принимает в один клик
+- Заявка прилетает диспетчеру в реальном времени (Supabase Realtime, звук + вибрация) — принятие в один клик
+- Отправитель мгновенно получает уведомление о принятии, статус обновляется без перезагрузки
 - Трекинг груза в реальном времени через 2GIS-карту
+- Загруженность пунктов пропуска: порт Актау, КПП «Болашак», «Тажен», ж/д узел Бейнеу
+- Региональная аналитика транзита для акимата: объёмы, динамика, структура грузов, топ направлений
+- Подписочная модель: тарифы, оплата картой (Luhn-валидация), история платежей
 - Охват: Казахстан · Туркменистан · Азербайджан · Иран · Россия
 
 ---
@@ -34,7 +40,7 @@
 
 | Слой | Технология | Назначение |
 |---|---|---|
-| Фреймворк | **Next.js 15** (App Router, React 19) | SSR, API Routes, Server Actions |
+| Фреймворк | **Next.js 16** (App Router, Turbopack, React 19) | SSR, API Routes, Server Actions |
 | База данных | **Supabase** (PostgreSQL) | Хранение данных, RLS-политики |
 | Аутентификация | **Supabase Auth** | Email + телефон, JWT-сессии |
 | Стилизация | **Tailwind CSS v4** + shadcn/ui | UI-компоненты, тема |
@@ -67,12 +73,14 @@
 API Routes (Server-side only)
     └── /api/ai-route  →  Groq LLM + логика подбора рейса
 
-Supabase (PostgreSQL + RLS)
-    ├── profiles    — профили пользователей с ролями
-    ├── orders      — заказы на перевозку
-    ├── customers   — клиентская база
-    ├── vehicles    — парк транспорта
-    └── routes      — маршруты
+Supabase (PostgreSQL + RLS + Realtime)
+    ├── profiles       — профили пользователей с ролями
+    ├── orders         — заказы на перевозку (Realtime: заявки → диспетчеру)
+    ├── customers      — клиентская база
+    ├── vehicles       — парк транспорта
+    ├── routes         — маршруты
+    ├── subscriptions  — подписка пользователя (тариф, карта, период)
+    └── payments       — история платежей
 ```
 
 ---
@@ -197,8 +205,8 @@ cargora/
 ### 1. Клонировать и установить зависимости
 
 ```bash
-git clone https://github.com/your-username/cargora.git
-cd cargora
+git clone https://github.com/Sparkyyz001/Cargora.git
+cd Cargora
 pnpm install
 ```
 
@@ -220,7 +228,17 @@ cp .env.example .env.local
 
 ### 3. Настроить Supabase
 
-В SQL Editor выполнить схему из `lib/actions/seed.ts`, затем:
+В SQL Editor выполнить по порядку файлы из `supabase/`:
+
+```
+schema.sql                        — базовые таблицы (profiles, orders, vehicles, routes, customers) + RLS
+migration_add_roles.sql           — роли пользователей при регистрации
+migration_add_order_details.sql   — расширенные поля заказа
+migration_billing.sql             — подписки и история платежей
+migration_dispatcher_access.sql   — доступ диспетчера к входящим заявкам + Realtime
+```
+
+Затем:
 
 ```
 Authentication → URL Configuration
@@ -315,8 +333,9 @@ vehicles (
 **Запрос:**
 ```json
 {
-  "destination": "Туркменбаши",
-  "weight_kg": 25000,
+  "cargo_type": "Нефтепродукты",
+  "weight": 25000,
+  "recipient_address": "Туркменбаши, Туркменистан",
   "transport_type": "ferry"
 }
 ```
@@ -346,7 +365,7 @@ vehicles (
 
 | Тип | Маршруты |
 |---|---|
-| Паром (6 судов) | Актау → Туркменбаши, Баку, Амирабад, Энзели, Махачкала, Астрахань |
+| Паром (5 судов) | Актау → Туркменбаши, Баку (Алят), Амирабад |
 | Автодоставка (6 перевозчиков) | Актау → Алматы, Астана, Шымкент, Атырау, Ташкент, Актобе |
 
 **Кодировка транспорта в БД** (без миграций, обратно совместимо):
@@ -382,7 +401,9 @@ vercel --prod
 | `GROQ_API_KEY` на клиенте | ✅ Только серверный Route Handler |
 | Supabase Anon Key | ✅ Безопасен — защищён RLS-политиками |
 | Row Level Security | ✅ Включён на всех таблицах |
-| Валидация паролей | ✅ Минимум 8 символов, буквы + цифры |
+| Валидация паролей | ✅ Минимум 6 символов |
+| Доступ к заказам | ✅ Отправитель — только свои; диспетчер/перевозчик — входящие заявки (RLS-политики) |
+| API `/api/ai-route` | ✅ Только для авторизованных пользователей |
 | Видео в git | ✅ Исключены (87MB суммарно) |
 
 ---
