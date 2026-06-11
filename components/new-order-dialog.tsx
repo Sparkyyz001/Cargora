@@ -146,7 +146,8 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
       return
     }
 
-    toast.success(isFerry ? "Заказ создан — паромный перевозчик уведомлён" : "Заказ создан — автоперевозчик уведомлён")
+    const num = "order_number" in result ? `Заказ ${result.order_number}` : "Заказ"
+    toast.success(isFerry ? `${num} создан — паромный перевозчик уведомлён` : `${num} создан — автоперевозчик уведомлён`)
     setOpen(false)
     resetForm()
   }
@@ -211,10 +212,6 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
 
           {/* Груз */}
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="order_number">Номер заказа</Label>
-              <Input id="order_number" name="order_number" placeholder="МАН-00172" required />
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <Label>Тип груза</Label>

@@ -43,7 +43,21 @@ export async function createOrder(formData: FormData) {
 
   if (!user) return { error: "Не авторизован" }
 
-  const order_number = formData.get("order_number") as string
+  // Номер присваивает система: продолжаем нумерацию от последнего заказа
+  let order_number = (formData.get("order_number") as string) || ""
+  if (!order_number) {
+    const { data: last } = await supabase
+      .from("orders")
+      .select("order_number")
+      .eq("user_id", user.id)
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const m = last?.order_number?.match(/(\d+)$/)
+    const next = m ? Number(m[1]) + 1 : 172
+    order_number = `МАН-${String(next).padStart(5, "0")}`
+  }
+
   const cargo_type = formData.get("cargo_type") as string
   const status = formData.get("status") as Order["status"]
   const weight = Number(formData.get("weight")) || null
@@ -78,7 +92,7 @@ export async function createOrder(formData: FormData) {
 
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/orders")
-  return { success: true }
+  return { success: true, order_number }
 }
 
 export async function updateOrderStatus(id: number, status: Order["status"]) {
