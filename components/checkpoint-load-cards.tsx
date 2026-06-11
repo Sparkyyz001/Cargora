@@ -23,12 +23,9 @@ export function CheckpointLoadCards() {
 
   return (
     <div className="flex flex-col gap-3 px-4 lg:px-6">
-      <div className="flex items-center gap-2">
-        <span className="relative flex size-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
-          <span className="relative inline-flex size-2 rounded-full bg-green-500" />
-        </span>
-        <h2 className="text-sm font-medium">Пункты пропуска — загруженность сейчас</h2>
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-medium">Загруженность пунктов пропуска</h2>
+        <span className="text-xs text-muted-foreground">обновлено только что</span>
       </div>
       <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
         {points.map((p) => (
