@@ -70,7 +70,6 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
   const [loading, setLoading] = React.useState(false)
   const [transportType, setTransportType] = React.useState<TransportType>("ferry")
   const [cargoType, setCargoType] = React.useState("")
-  const [status, setStatus] = React.useState("Ожидает отправки")
   const [driver, setDriver] = React.useState("")
   const [deliveryDate, setDeliveryDate] = React.useState<DateValue | null>(null)
   const [showCalendar, setShowCalendar] = React.useState(false)
@@ -120,7 +119,6 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
   function resetForm() {
     setTransportType("ferry")
     setCargoType("")
-    setStatus("Ожидает отправки")
     setDriver("")
     setDeliveryDate(null)
     setShowCalendar(false)
@@ -134,7 +132,7 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
 
     const formData = new FormData(e.currentTarget)
     if (cargoType) formData.set("cargo_type", cargoType)
-    if (status) formData.set("status", status)
+    formData.set("status", "Ожидает отправки")
     if (driver) formData.set("driver", driver)
     if (deliveryDate) formData.set("delivery_date", deliveryDate.toString())
 
@@ -212,37 +210,22 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
 
           {/* Груз */}
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label>Тип груза</Label>
-                <Select value={cargoType} onValueChange={setCargoType} required>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Выбрать тип" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Нефтепродукты">Нефтепродукты</SelectItem>
-                    <SelectItem value="Контейнер ТМТМ">Контейнер ТМТМ</SelectItem>
-                    <SelectItem value="Металлопрокат">Металлопрокат</SelectItem>
-                    <SelectItem value="Зерновые грузы">Зерновые грузы</SelectItem>
-                    <SelectItem value="Строительные материалы">Строительные материалы</SelectItem>
-                    <SelectItem value="Химические грузы">Химические грузы</SelectItem>
-                    <SelectItem value="Автомобили">Автомобили</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Статус</Label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Ожидает отправки">Ожидает отправки</SelectItem>
-                    <SelectItem value="В пути">В пути</SelectItem>
-                    <SelectItem value="Доставлен">Доставлен</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex flex-col gap-2">
+              <Label>Тип груза</Label>
+              <Select value={cargoType} onValueChange={setCargoType} required>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Выбрать тип" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Нефтепродукты">Нефтепродукты</SelectItem>
+                  <SelectItem value="Контейнер ТМТМ">Контейнер ТМТМ</SelectItem>
+                  <SelectItem value="Металлопрокат">Металлопрокат</SelectItem>
+                  <SelectItem value="Зерновые грузы">Зерновые грузы</SelectItem>
+                  <SelectItem value="Строительные материалы">Строительные материалы</SelectItem>
+                  <SelectItem value="Химические грузы">Химические грузы</SelectItem>
+                  <SelectItem value="Автомобили">Автомобили</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
