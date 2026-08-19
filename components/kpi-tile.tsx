@@ -13,9 +13,11 @@ export type TileAccent = "blue" | "green" | "amber" | "rose" | "slate"
 
 const ACCENTS: Record<TileAccent, { wrapper: string; icon: string }> = {
   blue: {
+    // Название сохранено ради совместимости вызовов, цвет — терракота:
+    // в тёплой палитре синий акцент выпадал из семейства
     wrapper:
-      "border-blue-500/30 bg-[linear-gradient(135deg,rgb(59_130_246/0.10)_0%,rgb(59_130_246/0)_62%)]",
-    icon: "text-blue-600 bg-blue-500/12 dark:text-blue-400",
+      "border-orange-600/30 bg-[linear-gradient(135deg,rgb(234_88_12/0.10)_0%,rgb(234_88_12/0)_62%)]",
+    icon: "text-orange-700 bg-orange-600/12 dark:text-orange-400",
   },
   green: {
     wrapper:
@@ -34,8 +36,8 @@ const ACCENTS: Record<TileAccent, { wrapper: string; icon: string }> = {
   },
   slate: {
     wrapper:
-      "border-slate-500/28 bg-[linear-gradient(135deg,rgb(100_116_139/0.10)_0%,rgb(100_116_139/0)_62%)]",
-    icon: "text-slate-600 bg-slate-500/12 dark:text-slate-300",
+      "border-stone-500/28 bg-[linear-gradient(135deg,rgb(120_113_108/0.10)_0%,rgb(120_113_108/0)_62%)]",
+    icon: "text-stone-600 bg-stone-500/12 dark:text-stone-300",
   },
 }
 

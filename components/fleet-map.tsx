@@ -317,13 +317,13 @@ size: [0, 0],
         new mapgl.Polyline(map, {
           coordinates: focusRoute,
           width: 11,
-          color: "#3b82f6",
+          color: "#ea580c",
           zIndex: 20,
         } as never) as unknown as Destroyable,
         new mapgl.Polyline(map, {
           coordinates: focusRoute,
           width: 4,
-          color: "#93c5fd",
+          color: "#fdba74",
           zIndex: 21,
         } as never) as unknown as Destroyable,
       )
