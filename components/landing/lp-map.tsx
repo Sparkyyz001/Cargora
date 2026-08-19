@@ -213,9 +213,8 @@ export function LpMap() {
                   preload="auto"
                   className="h-full w-full object-cover"
                 >
-                  {/* То же видео, что на первом экране: 0.6 МБ, второй раз
-                      грузить не придётся — файл уже в кэше браузера */}
-                  <source src="/hero-mangystau.mp4" type="video/mp4" />
+                  {/* 65 КБ — грузится мгновенно даже на мобильном интернете */}
+                  <source src="/region-map.mp4" type="video/mp4" />
                 </video>
               )}
             </motion.div>
