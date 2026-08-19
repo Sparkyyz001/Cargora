@@ -7,7 +7,7 @@ import {
   computeTopRoutes,
 } from "@/lib/order-stats"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import { CheckpointLoadCards } from "@/components/checkpoint-load-cards"
+import { DirectionLoadCards } from "@/components/direction-load-cards"
 import { SectionCards } from "@/components/section-cards"
 import {
   Card,
@@ -35,7 +35,7 @@ export default async function AnalyticsPage() {
           пунктов пропуска — порт Актау, ТМТМ, граница с Туркменистаном
         </p>
       </div>
-      <CheckpointLoadCards />
+      <DirectionLoadCards />
       <SectionCards stats={stats} />
       <div className="px-4 lg:px-6">
         <ChartAreaInteractive data={dailySeries} />
