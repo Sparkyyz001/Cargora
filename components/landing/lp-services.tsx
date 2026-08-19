@@ -6,14 +6,14 @@ import { ArrowRight, ArrowUpRight } from "lucide-react"
 
 const CARDS = [
   {
-    label: "Паромная перевозка",
-    img: "https://images.unsplash.com/photo-1759354017705-8bd86407ca5e?auto=format&fit=crop&w=600&h=820&q=80",
-    bg: "linear-gradient(160deg,#c2410c,#7c2d12)",
+    label: "Развоз по области",
+    img: "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=600&h=820&q=80",
+    bg: "linear-gradient(160deg,#1d4ed8,#1e3a8a)",
   },
   {
-    label: "Перевозки по области",
-    img: "https://images.unsplash.com/photo-1769144256181-698b8f807066?auto=format&fit=crop&w=600&h=820&q=80",
-    bg: "linear-gradient(160deg,#0e7490,#155e75)",
+    label: "Обратная загрузка",
+    img: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&h=820&q=80",
+    bg: "linear-gradient(160deg,#047857,#064e3b)",
   },
 ]
 

@@ -10,8 +10,6 @@ const LpServices = dynamic(() => import("@/components/landing/lp-services").then
 const LpSolutions = dynamic(() => import("@/components/landing/lp-solutions").then((m) => m.LpSolutions))
 const LpBento = dynamic(() => import("@/components/landing/lp-bento").then((m) => m.LpBento))
 const LpProcess = dynamic(() => import("@/components/landing/lp-process").then((m) => m.LpProcess))
-const Testimonials = dynamic(() => import("@/components/landing/testimonials").then((m) => m.Testimonials))
-const Pricing = dynamic(() => import("@/components/landing/pricing").then((m) => m.Pricing))
 const ReadyCta = dynamic(() => import("@/components/landing/ready-cta").then((m) => m.ReadyCta))
 const Footer = dynamic(() => import("@/components/landing/footer").then((m) => m.Footer))
 
@@ -27,8 +25,6 @@ export default function Page() {
         <LpSolutions />
         <LpBento />
         <LpProcess />
-        <Testimonials />
-        <Pricing />
         <ReadyCta />
       </main>
       <Footer />
