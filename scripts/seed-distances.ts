@@ -36,8 +36,12 @@ function loadEnv(): Record<string, string> {
 
 const env = loadEnv()
 const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error("Нет ключей Supabase в .env.local")
+// Секретный ключ обходит RLS — справочники остаются закрытыми на запись
+// для всех остальных. Ключ живёт только в .env.local (он в .gitignore)
+// и читается только этим скриптом, который в рантайм приложения не попадает.
+const SUPABASE_KEY = env.SUPABASE_SECRET_KEY
+if (!SUPABASE_URL) throw new Error("Нет NEXT_PUBLIC_SUPABASE_URL в .env.local")
+if (!SUPABASE_KEY) throw new Error("Нет SUPABASE_SECRET_KEY в .env.local — без него RLS не пустит запись")
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
