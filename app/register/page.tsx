@@ -49,9 +49,6 @@ const ROLES: { id: UserRole; title: string; description: string; Icon: React.Com
   },
 ]
 
-/** См. комментарий в app/login/page.tsx. */
-const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "1"
-
 export default function RegisterPage() {
   const supabase = createClient()
   const [step, setStep] = React.useState<Step>("role")
@@ -265,25 +262,21 @@ export default function RegisterPage() {
                 </p>
               </div>
 
-              {GOOGLE_ENABLED && (
-                <>
-                  <Button
+              <Button
                     variant="outline"
                     className="w-full cursor-pointer gap-3"
                     onClick={handleSocial}
                     disabled={!!socialLoading}
                   >
                     {socialLoading === "google" ? <Spinner /> : <GoogleIcon />}
-                    Зарегистрироваться через Google
-                  </Button>
+                Зарегистрироваться через Google
+              </Button>
 
-                  <div className="my-5 flex items-center gap-3">
-                    <Separator className="flex-1" />
-                    <span className="text-xs text-muted-foreground">или продолжите с email</span>
-                    <Separator className="flex-1" />
-                  </div>
-                </>
-              )}
+              <div className="my-5 flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">или продолжите с email</span>
+                <Separator className="flex-1" />
+              </div>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-3">

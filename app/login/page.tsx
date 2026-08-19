@@ -243,9 +243,9 @@ function LoginContent() {
             </p>
           </div>
 
-          {GOOGLE_ENABLED && (
-            <>
-              <Button
+          {/* Вход через Google. Провайдер настроен в Supabase; при сбое
+              остаётся вход по почте, он самодостаточен. */}
+          <Button
                 variant="outline"
                 className="w-full cursor-pointer gap-3"
                 onClick={() => handleSocial("google")}
@@ -256,16 +256,14 @@ function LoginContent() {
                 ) : (
                   <GoogleIcon />
                 )}
-                Войти через Google
-              </Button>
+            Войти через Google
+          </Button>
 
-              <div className="my-6 flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">или</span>
-                <Separator className="flex-1" />
-              </div>
-            </>
-          )}
+          <div className="my-6 flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground">или</span>
+            <Separator className="flex-1" />
+          </div>
 
           <form onSubmit={handleEmailSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
@@ -315,10 +313,6 @@ function LoginContent() {
     </div>
   )
 }
-
-/** Google-вход показывается только когда провайдер включён в Supabase.
- *  Кнопка, которая падает с «provider is not enabled», хуже, чем её отсутствие. */
-const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "1"
 
 export default function LoginPage() {
   return (
