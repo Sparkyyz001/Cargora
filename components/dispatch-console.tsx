@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 import { IconArrowNarrowRight, IconMap2, IconTable } from "@tabler/icons-react"
 
 import { createClient } from "@/lib/supabase/client"
@@ -17,6 +18,7 @@ import { SimControls, useSimulation } from "@/components/sim-controls"
 import { buildSimTrips, type TripMeta } from "@/lib/sim-trips"
 import { BackhaulCard } from "@/components/backhaul-card"
 import { OrderDetailPanel } from "@/components/order-detail-panel"
+import { OrderChat, type ChatMessage } from "@/components/order-chat"
 import { TripDetailPanel } from "@/components/trip-detail-panel"
 import { findDriver, fullName, driverInitials } from "@/lib/drivers"
 import { Badge } from "@/components/ui/badge"
@@ -63,10 +65,12 @@ export function DispatchConsole({
   initialOrders,
   settlements,
   distances,
+  me,
 }: {
   initialOrders: Order[]
   settlements: { id: number; name: string }[]
   distances: { from_id: number; to_id: number; km: number; minutes: number }[]
+  me: { id: string; name: string; role: ChatMessage["role"] } | null
 }) {
   const supabase = React.useMemo(() => createClient(), [])
   const names = React.useMemo(
@@ -279,6 +283,9 @@ export function DispatchConsole({
       setOrders((prev) => prev.filter((o) => o.id !== order.id && o.id !== suggestion.orderId))
       setSelectedId(null)
       setMatch(null)
+      toast.success(`Связка оформлена: ${order.order_number} и ${suggestion.orderNumber}`, {
+        description: "Обе заявки перешли в статус «В пути» и ушли с биржи. Смотрите их в разделе «Заявки».",
+      })
     } finally {
       setTaking(false)
     }
@@ -291,6 +298,9 @@ export function DispatchConsole({
       setOrders((prev) => prev.filter((o) => o.id !== order.id))
       setSelectedId(null)
       setMatch(null)
+      toast.success(`Заявка ${order.order_number} принята`, {
+        description: "Статус «В пути». Заявка ушла с биржи — найдёте её в разделе «Заявки».",
+      })
     } finally {
       setTaking(false)
     }
@@ -568,8 +578,16 @@ export function DispatchConsole({
                 disabled={taking}
                 onClick={() => takeSingle(selected)}
               >
-                Взять только этот рейс
+                {match?.backhaul ? "Взять без обратной загрузки" : "Принять заявку"}
               </Button>
+
+              {me && (
+                <OrderChat
+                  orderId={selected.id}
+                  driverKey={match?.carriers[0]?.carrierName ?? selected.driver}
+                  me={me}
+                />
+              )}
             </div>
           </div>
         ) : (

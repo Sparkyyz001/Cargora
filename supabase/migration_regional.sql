@@ -113,3 +113,49 @@ begin
     alter publication supabase_realtime add table public.orders;
   end if;
 end $$;
+
+-- ================================================================
+-- Переписка по заявке: отправитель, перевозчик и водитель
+-- ================================================================
+create table if not exists public.order_messages (
+  id         bigserial primary key,
+  order_id   bigint not null references public.orders(id) on delete cascade,
+  user_id    uuid references auth.users(id) on delete set null,
+  author     text not null,
+  role       text not null check (role in ('sender','carrier','driver','dispatcher')),
+  body       text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+
+alter table public.order_messages enable row level security;
+
+drop policy if exists "order_messages: read" on public.order_messages;
+create policy "order_messages: read" on public.order_messages
+  for select using (
+    exists (
+      select 1 from public.orders o
+      where o.id = order_id
+        and (
+          o.user_id = auth.uid()
+          or o.carrier_id = auth.uid()
+          or o.status in ('Ожидает отправки', 'Жіберілуді күтуде')
+        )
+    )
+  );
+
+drop policy if exists "order_messages: write" on public.order_messages;
+create policy "order_messages: write" on public.order_messages
+  for insert with check (auth.uid() = user_id);
+
+create index if not exists idx_order_messages_order
+  on public.order_messages (order_id, created_at);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and tablename = 'order_messages'
+  ) then
+    alter publication supabase_realtime add table public.order_messages;
+  end if;
+end $$;
