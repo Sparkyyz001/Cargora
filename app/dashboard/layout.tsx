@@ -16,6 +16,12 @@ export default async function DashboardLayout({
   // Автоматически заполняем данными при первом входе
   await ensureUserData()
 
+  // Автопарк для сайдбара: диспетчер видит доступность машин на любой странице
+  const { data: vehicles } = await supabase
+    .from("vehicles")
+    .select("id,vehicle_code,plate,status")
+    .order("vehicle_code")
+
   const userData = {
     name:
       user?.user_metadata?.full_name ??
@@ -35,7 +41,7 @@ export default async function DashboardLayout({
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" user={userData} />
+      <AppSidebar variant="inset" user={userData} vehicles={vehicles ?? []} />
       <SidebarInset>
         <SiteHeader />
         <OrderStatusListener />
