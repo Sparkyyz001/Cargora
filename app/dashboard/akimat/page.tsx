@@ -12,6 +12,8 @@ import { KpiTile, TileGrid } from "@/components/kpi-tile"
 import { ScaleCalculator } from "@/components/scale-calculator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 // Дашборд для акимата: картина грузопотоков внутри области.
 // Отвечает на вопрос, который у акимата действительно есть, — куда идут
@@ -91,11 +93,17 @@ export default async function AkimatPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 lg:p-6">
-      <div>
-        <h1 className="text-xl font-bold">Грузопотоки Мангистауской области</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Картина перевозок внутри региона для планирования дорог и снабжения
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">Грузопотоки Мангистауской области</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Картина перевозок внутри региона для планирования дорог и снабжения
+          </p>
+        </div>
+
+        <Button asChild variant="outline">
+          <Link href="/dashboard/akimat/report">Выгрузить отчёт</Link>
+        </Button>
       </div>
 
       {/* ── Показатели ── */}
