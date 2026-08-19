@@ -243,9 +243,30 @@ function LoginContent() {
             </p>
           </div>
 
-          {/* Вход по почте — единственный включённый способ.
-              Google, LinkedIn и вход по SMS убраны: провайдеры в проекте
-              Supabase не подключены, и кнопка отдавала бы ошибку. */}
+          {GOOGLE_ENABLED && (
+            <>
+              <Button
+                variant="outline"
+                className="w-full cursor-pointer gap-3"
+                onClick={() => handleSocial("google")}
+                disabled={!!socialLoading}
+              >
+                {socialLoading === "google" ? (
+                  <span className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <GoogleIcon />
+                )}
+                Войти через Google
+              </Button>
+
+              <div className="my-6 flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">или</span>
+                <Separator className="flex-1" />
+              </div>
+            </>
+          )}
+
           <form onSubmit={handleEmailSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="email">Email</Label>
@@ -294,6 +315,10 @@ function LoginContent() {
     </div>
   )
 }
+
+/** Google-вход показывается только когда провайдер включён в Supabase.
+ *  Кнопка, которая падает с «provider is not enabled», хуже, чем её отсутствие. */
+const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "1"
 
 export default function LoginPage() {
   return (
