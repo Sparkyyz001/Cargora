@@ -46,3 +46,4 @@ presentation/
 scripts/distance-matrix.json
 scripts/dm-values.sql
 scripts/land-routes.sql
+scripts/geo-*.sql

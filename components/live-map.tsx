@@ -137,10 +137,19 @@ export function LiveMap({
   orders,
   landRoutes,
   mode,
+  showPanel = true,
+  focusRoute = null,
+  backhaulRoute = null,
 }: {
   orders: Order[]
   landRoutes: LandRoute[]
   mode: LiveMapMode
+  /** false — рисуем только карту: панель со списком даёт вызывающий экран. */
+  showPanel?: boolean
+  /** Маршрут выбранной заявки: рисуется поверх остальных и в него уводится камера. */
+  focusRoute?: [number, number][] | null
+  /** Маршрут обратной загрузки — вторым цветом рядом с основным. */
+  backhaulRoute?: [number, number][] | null
 }) {
   const containerRef  = React.useRef<HTMLDivElement>(null)
   const [error, setError]             = React.useState<string | null>(null)
@@ -154,6 +163,7 @@ export function LiveMap({
   const progFRef  = React.useRef<Map<number, Line>>(new Map())
   const progLRef  = React.useRef<Map<number, Line>>(new Map())
   const startRef  = React.useRef(Date.now())
+  const focusRef  = React.useRef<Line[]>([])
 
   // ── Init map ───────────────────────────────────────────────────
   React.useEffect(() => {
@@ -244,6 +254,74 @@ export function LiveMap({
     return () => clearInterval(t)
   }, [])
 
+  // ── Подсветка выбранного маршрута ─────────────────────────────
+  // Рисуется поверх фоновых линий: широкая полупрозрачная подложка
+  // плюс яркая линия сверху, чтобы маршрут читался на любом фоне карты.
+  React.useEffect(() => {
+    const map = mapRef.current
+    const mapgl = mapglRef.current
+    if (!map || !mapgl) return
+
+    focusRef.current.forEach((l) => l.destroy())
+    focusRef.current = []
+
+    if (!focusRoute || focusRoute.length < 2) return
+
+    const lines: Line[] = []
+
+    const halo = new mapgl.Polyline(map, {
+      coordinates: focusRoute,
+      width: 12,
+      color: "#3b82f6",
+      // подложка приглушена, иначе она забивает саму линию
+      opacity: 0.25,
+      zIndex: 20,
+    } as never) as unknown as Line
+    const line = new mapgl.Polyline(map, {
+      coordinates: focusRoute,
+      width: 5,
+      color: "#3b82f6",
+      zIndex: 21,
+    } as never) as unknown as Line
+
+    lines.push(halo, line)
+
+    // Обратный груз — зелёным: на демо видно, что машина не возвращается пустой
+    if (backhaulRoute && backhaulRoute.length >= 2) {
+      lines.push(
+        new mapgl.Polyline(map, {
+          coordinates: backhaulRoute,
+          width: 5,
+          color: "#10b981",
+          zIndex: 22,
+        } as never) as unknown as Line,
+      )
+    }
+
+    focusRef.current = lines
+
+    // Уводим камеру в маршрут: иначе на области в 165 тысяч км²
+    // короткое плечо теряется в масштабе
+    const fit = (map as unknown as { fitBounds?: (b: unknown, o?: unknown) => void }).fitBounds
+    if (fit) {
+      let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity
+      for (const [lng, lat] of focusRoute) {
+        if (lng < minLng) minLng = lng
+        if (lat < minLat) minLat = lat
+        if (lng > maxLng) maxLng = lng
+        if (lat > maxLat) maxLat = lat
+      }
+      try {
+        fit.call(map, { southWest: [minLng, minLat], northEast: [maxLng, maxLat] }, { padding: { top: 80, right: 80, bottom: 80, left: 80 } })
+      } catch {}
+    }
+
+    return () => {
+      focusRef.current.forEach((l) => l.destroy())
+      focusRef.current = []
+    }
+  }, [focusRoute, backhaulRoute])
+
   // ── Focus helpers ─────────────────────────────────────────────
   function flyTo(pos: [number, number], zoom: number) {
     const m = mapRef.current as unknown as { setCenter(c: [number, number]): void; setZoom(z: number): void } | null
@@ -270,7 +348,7 @@ export function LiveMap({
   return (
     <div className="flex h-full overflow-hidden">
       {/* ── Left panel ── */}
-      <div className="flex w-80 shrink-0 flex-col border-r bg-background">
+      <div className={cn("flex w-80 shrink-0 flex-col border-r bg-background", !showPanel && "hidden")}>
           /* ── LAND panel ── */
           <>
             <div className="shrink-0 border-b px-3 py-2.5">
