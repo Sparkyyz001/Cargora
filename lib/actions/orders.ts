@@ -84,6 +84,15 @@ export async function createOrder(formData: FormData) {
   const recipient_phone = (formData.get("recipient_phone") as string) || null
   const recipient_address = (formData.get("recipient_address") as string) || null
 
+  // Поля внутрирегиональной перевозки: без них не работает подбор машины
+  // и обратной загрузки — матчинг ищет по id населённых пунктов.
+  const from_settlement_id = Number(formData.get("from_settlement_id")) || null
+  const to_settlement_id = Number(formData.get("to_settlement_id")) || null
+  const body_type = (formData.get("body_type") as string) || null
+  const pickup_from = (formData.get("pickup_from") as string) || null
+  const pickup_to = (formData.get("pickup_to") as string) || null
+  const distance_km = Number(formData.get("distance_km")) || null
+
   const { error } = await supabase.from("orders").insert({
     user_id: user.id,
     order_number,
@@ -99,6 +108,12 @@ export async function createOrder(formData: FormData) {
     recipient_name,
     recipient_phone,
     recipient_address,
+    from_settlement_id,
+    to_settlement_id,
+    body_type,
+    pickup_from,
+    pickup_to,
+    distance_km,
   })
 
   if (error) return { error: error.message }
@@ -155,26 +170,18 @@ export async function seedDemoOrders() {
   if (!user) return { error: "Не авторизован" }
 
   const demoOrders = [
-    { order_number: "МАН-00157", cargo_type: "Нефтепродукты", status: "В пути" as const, weight: 18500, volume: 22, driver: "Ахмет С.", sender_name: "ТОО «КазМунайТранс»", sender_address: "Актау, Промзона", recipient_name: "Туркменбаши НПЗ", recipient_address: "Туркменбаши, Туркменистан" },
-    { order_number: "МАН-00158", cargo_type: "Контейнер ТМТМ", status: "Доставлен" as const, weight: 22000, volume: 36, driver: "Батыр Ж.", sender_name: "COSCO Shipping KZ", sender_address: "Актау, Морпорт, прич. 3", recipient_name: "DB Cargo Europe", recipient_address: "Баку, Азербайджан" },
-    { order_number: "МАН-00159", cargo_type: "Металлопрокат", status: "Доставлен" as const, weight: 32000, volume: 28, driver: "Нурлан Б.", sender_name: "АО «Қазцинк»", sender_address: "Актау, Терминал №2", recipient_name: "Arcelormittal", recipient_address: "Баку, порт Алят" },
-    { order_number: "МАН-00160", cargo_type: "Зерновые грузы", status: "В пути" as const, weight: 25000, volume: 40, driver: "Арман Т.", sender_name: "ТОО «АгроЭкспорт»", sender_address: "Актау, Зерновой терминал", recipient_name: "Иранский экспорт", recipient_address: "Амирабад, Иран" },
-    { order_number: "МАН-00161", cargo_type: "Строительные материалы", status: "Ожидает отправки" as const, weight: 14000, volume: 18, driver: "Серик К.", sender_name: "ТОО «Актауқұрылыс»", sender_address: "Актау, мкр 31", recipient_name: "ТОО «МангКурылыс»", recipient_address: "Жанаозен" },
-    { order_number: "МАН-00162", cargo_type: "Химические грузы", status: "Доставлен" as const, weight: 9800, volume: 14, driver: "Ахмет С.", sender_name: "АО «Каустик»", sender_address: "Актау, Химпром", recipient_name: "Туркменхимия", recipient_address: "Туркменбаши, Туркменистан" },
-    { order_number: "МАН-00163", cargo_type: "Нефтепродукты", status: "В пути" as const, weight: 21000, volume: 26, driver: "Батыр Ж.", sender_name: "АО «КазТрансОйл»", sender_address: "Актау, Нефтяной терминал", recipient_name: "SOCAR", recipient_address: "Баку, Нефтчала" },
-    { order_number: "МАН-00164", cargo_type: "Контейнер ТМТМ", status: "Ожидает отправки" as const, weight: 19500, volume: 32, driver: "Нурлан Б.", sender_name: "China Merchants", sender_address: "Актау, Морпорт, прич. 1", recipient_name: "Hapag-Lloyd", recipient_address: "Баку, порт Алят" },
-    { order_number: "МАН-00165", cargo_type: "Автомобили", status: "Доставлен" as const, weight: 16000, volume: 45, driver: "Дауит М.", sender_name: "ТОО «АвтоИмпорт»", sender_address: "Актау, СЭАЗ", recipient_name: "Дилерский центр", recipient_address: "Алматы, мкр Алтай" },
-    { order_number: "МАН-00166", cargo_type: "Металлопрокат", status: "В пути" as const, weight: 28000, volume: 30, driver: "Арман Т.", sender_name: "ТОО «МетЛогистик»", sender_address: "Бейнеу, ж/д терминал", recipient_name: "Kardemir Steel", recipient_address: "Туркменбаши, порт" },
-    { order_number: "МАН-00167", cargo_type: "Зерновые грузы", status: "Доставлен" as const, weight: 30000, volume: 42, driver: "Серик К.", sender_name: "ТОО «КазАгроЭкс»", sender_address: "Бейнеу, зерновой склад", recipient_name: "Tehran Grain", recipient_address: "Амирабад, Иран" },
-    { order_number: "МАН-00168", cargo_type: "Строительные материалы", status: "Ожидает отправки" as const, weight: 11500, volume: 16, driver: "Ахмет С.", sender_name: "ТОО «ЖезқазғанЦемент»", sender_address: "Актау, склад №7", recipient_name: "ГП «ТуркменЗнак»", recipient_address: "Туркменабад, Туркменистан" },
-    { order_number: "МАН-00169", cargo_type: "Химические грузы", status: "В пути" as const, weight: 7200, volume: 10, driver: "Батыр Ж.", sender_name: "ТОО «НефтеХим»", sender_address: "Жанаозен, завод", recipient_name: "Азот-Туркменистан", recipient_address: "Туркменбаши, хим. порт" },
-    { order_number: "МАН-00170", cargo_type: "Нефтепродукты", status: "Доставлен" as const, weight: 24000, volume: 29, driver: "Дауит М.", sender_name: "ТОО «МангистауМунай»", sender_address: "Актау, Нефтяной терминал", recipient_name: "LUKOIL Overseas", recipient_address: "Махачкала, Россия" },
-    { order_number: "МАН-00171", cargo_type: "Контейнер ТМТМ", status: "В пути" as const, weight: 20500, volume: 34, driver: "Нурлан Б.", sender_name: "KTZE (KTZ Express)", sender_address: "Актау, Морпорт, прич. 5", recipient_name: "ADY Container", recipient_address: "Баку, порт Алят" },
+    { order_number: "МАН-00157", cargo_type: "Продукты питания",   status: "В пути" as const,           weight: 3400,  volume: 15, driver: "Ахмет С.",  sender_name: "ТОО «Каспий Фуд»",       sender_address: "Актау, промзона, база №4",  recipient_name: "Магазин «Береке»",       recipient_address: "Жанаозен, мкр Шанырак" },
+    { order_number: "МАН-00158", cargo_type: "Стройматериалы",     status: "Доставлен" as const,        weight: 17500, volume: 24, driver: "Батыр Ж.",  sender_name: "ТОО «Актауқұрылыс»",     sender_address: "Актау, мкр 31, склад",      recipient_name: "ИП Сарсенов",            recipient_address: "Шетпе, ул. Абая" },
+    { order_number: "МАН-00159", cargo_type: "Инертные материалы", status: "Доставлен" as const,        weight: 20000, volume: 12, driver: "Нурлан Б.", sender_name: "Карьер «Жетібай»",       sender_address: "Жетыбай, карьер",           recipient_name: "ТОО «Актау Бетон»",      recipient_address: "Актау, бетонный узел" },
+    { order_number: "МАН-00160", cargo_type: "Питьевая вода",      status: "В пути" as const,           weight: 6200,  volume: 18, driver: "Арман Т.",  sender_name: "ТОО «Ак Су»",            sender_address: "Актау, мкр 27",             recipient_name: "Сельский акимат Таушык", recipient_address: "Таушык, центр" },
+    { order_number: "МАН-00161", cargo_type: "Стройматериалы",     status: "Ожидает отправки" as const, weight: 14000, volume: 18, driver: "Серик К.",  sender_name: "ТОО «Актауқұрылыс»",     sender_address: "Актау, мкр 31",             recipient_name: "ТОО «МангКурылыс»",      recipient_address: "Жанаозен, стройплощадка" },
+    { order_number: "МАН-00162", cargo_type: "Комбикорм",          status: "Доставлен" as const,        weight: 7100,  volume: 20, driver: "Ахмет С.",  sender_name: "ТОО «Агроснаб Актау»",   sender_address: "Актау, база «Агро»",        recipient_name: "КХ «Сенек»",             recipient_address: "Сенек, ферма" },
+    { order_number: "МАН-00163", cargo_type: "Товары народного потребления", status: "В пути" as const, weight: 4300, volume: 21, driver: "Батыр Ж.", sender_name: "ТОО «Мангистау Трейд»", sender_address: "Актау, оптовая база",     recipient_name: "Магазин «Ақшұқыр»",      recipient_address: "Акшукур, ул. Достык" },
   ]
 
-  // Разносим даты создания по последним ~6 неделям, чтобы график
-  // дневной динамики на дашборде не был одним всплеском «сегодня»
-  const offsets = [0, 1, 2, 3, 5, 7, 9, 12, 15, 18, 22, 26, 31, 37, 43]
+  // Разносим заявки по последним двум неделям, чтобы графики не были плоскими
+  const offsets = [0, 1, 3, 5, 8, 11, 14]
+
   const daysAgo = (n: number) => {
     const d = new Date()
     d.setDate(d.getDate() - n)

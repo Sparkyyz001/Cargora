@@ -1,149 +1,120 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { forecastCheckpoints } from "@/lib/forecast"
-import { fetchWeather } from "@/lib/weather"
 
-// Прогноз загрузки порта Актау от собственной ML-модели (ml/train.py) —
-// подмешивается в контекст LLM, чтобы рекомендация учитывала очередь в порту
-async function getPortForecast() {
+import { createClient } from "@/lib/supabase/server"
+import { runMatch } from "@/lib/match-service"
+import { parseMatchRequest } from "@/lib/match-request"
+import { BODY_TYPE_LABELS, formatKzt, type BodyType } from "@/lib/economics"
+import type { BackhaulSuggestion, CarrierMatch } from "@/lib/matching"
+
+// POST /api/ai-route — подбор машины под заявку с объяснением на русском.
+//
+// Принципиально: все числа считает наш код (lib/matching + lib/economics)
+// по данным из БД. LLM получает УЖЕ ГОТОВЫЙ результат и только формулирует
+// его словами — она ничего не пересчитывает и не придумывает цифры.
+// Без GROQ_API_KEY ответ собирается шаблоном, продукт работает полностью.
+
+const COMMISSION_RATE = 0.02
+
+type AiRouteResponse = {
+  ok: true
+  distanceKm: number
+  minutes: number
+  carrier: CarrierMatch | null
+  backhaul: BackhaulSuggestion | null
+  alternativeBackhauls: BackhaulSuggestion[]
+  priceKzt: number
+  commissionKzt: number
+  fromName: string
+  toName: string
+  reasoning: string
+  /** true — текст сгенерирован LLM, false — собран шаблоном. */
+  llm: boolean
+}
+
+/** Запасное объяснение без LLM: те же числа, просто без литературной обработки. */
+function fallbackReasoning(
+  carrier: CarrierMatch | null,
+  backhaul: BackhaulSuggestion | null,
+  distanceKm: number,
+  priceKzt: number,
+  commissionKzt: number,
+  fromName: string,
+  toName: string,
+): string {
+  if (!carrier) {
+    return `Свободной машины под этот груз сейчас нет. Плечо ${fromName} → ${toName} — ${Math.round(distanceKm)} км. Заявка размещена на бирже: перевозчики видят её в реальном времени.`
+  }
+
+  const base =
+    `Рекомендую машину ${carrier.plate} (${BODY_TYPE_LABELS[carrier.bodyType]}, ${(carrier.capacityKg / 1000).toFixed(0)} т), водитель ${carrier.carrierName}. ` +
+    `Плечо ${fromName} → ${toName} — ${Math.round(distanceKm)} км, подача ${Math.round(carrier.deadheadToPickupKm)} км. ` +
+    `Стоимость рейса по рыночным ставкам — ${formatKzt(priceKzt)}, комиссия платформы 2% = ${formatKzt(commissionKzt)}.`
+
+  if (!backhaul) return base
+
+  return (
+    `${base} Есть обратная загрузка: ${backhaul.cargoType}, ${backhaul.fromName} → ${backhaul.toName}. ` +
+    `Со связкой порожний пробег падает с ${Math.round(backhaul.saving.emptyKmWithout)} до ${Math.round(backhaul.saving.emptyKmWith)} км — ` +
+    `это ${formatKzt(backhaul.saving.kztSaved)} экономии на топливе и времени водителя.`
+  )
+}
+
+async function explainWithLlm(
+  apiKey: string,
+  params: {
+    cargoType: string
+    weightKg: number
+    bodyType: BodyType
+    fromName: string
+    toName: string
+    distanceKm: number
+    carrier: CarrierMatch
+    priceKzt: number
+    backhaul: BackhaulSuggestion | null
+  },
+): Promise<string | null> {
+  const { carrier, backhaul } = params
+
+  const backhaulBlock = backhaul
+    ? `Обратная загрузка: ${backhaul.cargoType}, ${backhaul.fromName} → ${backhaul.toName}\n` +
+      `Экономия: порожний пробег ${Math.round(backhaul.saving.emptyKmWithout)} км → ${Math.round(backhaul.saving.emptyKmWith)} км, ` +
+      `${Math.round(backhaul.saving.kztSaved)} ₸, топлива ${backhaul.saving.fuelLitersSaved.toFixed(1)} л, времени ${backhaul.saving.hoursSaved.toFixed(1)} ч`
+    : "Обратная загрузка: не найдена, возврат будет порожним"
+
+  const systemPrompt = `Ты — диспетчер логистической платформы Мангистауской области.
+Тебе дан РЕЗУЛЬТАТ РАСЧЁТА. Не пересчитывай, не выдумывай цифры, не добавляй свои.
+Объясни водителю простым языком за 2-3 предложения, почему стоит взять этот рейс${backhaul ? " и связку с обратным грузом" : ""}.
+Пиши на русском, обращайся на «вы», без воды и без списков.`
+
+  const userPrompt = `Заявка: ${params.cargoType}, ${params.weightKg} кг, ${params.fromName} → ${params.toName}, ${Math.round(params.distanceKm)} км
+Подобрана машина: ${carrier.plate}, ${BODY_TYPE_LABELS[carrier.bodyType]} ${(carrier.capacityKg / 1000).toFixed(0)} т, водитель ${carrier.carrierName}, подача ${Math.round(carrier.deadheadToPickupKm)} км
+Стоимость рейса: ${params.priceKzt} ₸
+${backhaulBlock}`
+
   try {
-    const weather = await fetchWeather(48)
-    const port = forecastCheckpoints(weather.hours).find((p) => p.id === "aktau-port")
-    if (!port) return null
-    const fmt = new Intl.DateTimeFormat("ru-RU", {
-      timeZone: "Asia/Aqtau",
-      day: "numeric",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 260,
+        temperature: 0.2,
+      }),
+      signal: AbortSignal.timeout(9_000),
     })
-    return {
-      loadPct: port.current.loadPct,
-      waitHours: port.current.waitHours,
-      bestWindow: `${fmt.format(new Date(port.bestWindow.start))} — ${fmt.format(new Date(port.bestWindow.end))}`,
-      bestWindowLoad: port.bestWindow.avgLoad,
-      weatherSource: weather.source,
-    }
+
+    if (!res.ok) return null
+    const data = await res.json()
+    const text: string = data.choices?.[0]?.message?.content?.trim() ?? ""
+    return text || null
   } catch {
     return null
   }
 }
-
-const FERRIES = [
-  {
-    id: "KF-2891",
-    vessel: "Казахстан",
-    route: "Актау → Туркменбаши",
-    destKeys: ["туркменбаши", "туркменистан", "turkmenbashi", "turkmenistan"],
-    departure: "14:30",
-    availTeu: 127,
-    pricePerTeu: 1100,
-    transitDays: 1,
-  },
-  {
-    id: "AZ-3301",
-    vessel: "Дагестан",
-    route: "Актау → Туркменбаши",
-    destKeys: ["туркменбаши", "туркменистан", "turkmenbashi", "turkmenistan"],
-    departure: "20:15",
-    availTeu: 242,
-    pricePerTeu: 950,
-    transitDays: 1,
-  },
-  {
-    id: "KZ-1047",
-    vessel: "Азербайджан",
-    route: "Актау → Баку (Алят)",
-    destKeys: ["баку", "алят", "азербайджан", "baku", "alat", "azerbaijan"],
-    departure: "09:00",
-    availTeu: 83,
-    pricePerTeu: 1400,
-    transitDays: 2,
-  },
-  {
-    id: "KF-3104",
-    vessel: "Рустам Назаров",
-    route: "Актау → Баку (Алят)",
-    destKeys: ["баку", "алят", "азербайджан", "baku", "alat"],
-    departure: "23:00",
-    availTeu: 155,
-    pricePerTeu: 1350,
-    transitDays: 2,
-  },
-  {
-    id: "IZ-0892",
-    vessel: "Иранский экспресс",
-    route: "Актау → Амирабад",
-    destKeys: ["амирабад", "иран", "iran", "amirabad", "нефтчала", "энзели"],
-    departure: "16:45",
-    availTeu: 61,
-    pricePerTeu: 1600,
-    transitDays: 3,
-  },
-]
-
-const LAND_CARRIERS = [
-  {
-    id: "TRK-2891",
-    vessel: "КазТрансАвто · КамАЗ 20т",
-    route: "Актау → Алматы",
-    destKeys: ["алматы", "almaty", "алма-ата", "алмата"],
-    departure: "08:00",
-    availTeu: 12,
-    pricePerTeu: 2200,
-    transitDays: 3,
-  },
-  {
-    id: "TRK-3401",
-    vessel: "МанТранс · МАЗ 20т",
-    route: "Актау → Астана",
-    destKeys: ["астана", "нур-султан", "astana", "nursultan"],
-    departure: "06:00",
-    availTeu: 8,
-    pricePerTeu: 2700,
-    transitDays: 4,
-  },
-  {
-    id: "TRK-1204",
-    vessel: "КазЛогистик · Volvo FH",
-    route: "Актау → Шымкент",
-    destKeys: ["шымкент", "чимкент", "shymkent", "shimkent"],
-    departure: "10:00",
-    availTeu: 15,
-    pricePerTeu: 1800,
-    transitDays: 2,
-  },
-  {
-    id: "TRK-0711",
-    vessel: "АтырауТранс · КамАЗ 20т",
-    route: "Актау → Атырау",
-    destKeys: ["атырау", "atyrau", "гурьев"],
-    departure: "12:00",
-    availTeu: 20,
-    pricePerTeu: 600,
-    transitDays: 1,
-  },
-  {
-    id: "TRK-4502",
-    vessel: "КазТМ · Scania R450",
-    route: "Актау → Ташкент",
-    destKeys: ["ташкент", "tashkent", "узбекистан"],
-    departure: "07:30",
-    availTeu: 6,
-    pricePerTeu: 2500,
-    transitDays: 3,
-  },
-  {
-    id: "TRK-3011",
-    vessel: "МангТранс · МАН TGX",
-    route: "Актау → Актобе",
-    destKeys: ["актобе", "aktobe", "актюбинск"],
-    departure: "09:00",
-    availTeu: 10,
-    pricePerTeu: 1200,
-    transitDays: 2,
-  },
-]
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -154,126 +125,66 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Не авторизован" }, { status: 401 })
   }
 
-  const body = await req.json()
-  const { cargo_type, weight, volume, recipient_address, delivery_date, transport_type } = body
-
-  const dest = ((recipient_address as string) || "").toLowerCase()
-  const isLand = transport_type === "land"
-  const pool = isLand ? LAND_CARRIERS : FERRIES
-
-  let matching = pool.filter((c) => c.destKeys.some((k) => dest.includes(k)))
-  if (matching.length === 0) matching = pool
-
-  const kg = Number(weight) || 18000
-  // For land: trucks needed = ceil(kg / 20000); for ferry: TEU needed (same formula)
-  const teuNeeded = Math.max(1, Math.ceil(kg / 20000))
-
-  const available = matching.filter((c) => c.availTeu >= teuNeeded)
-  const candidates = available.length > 0 ? available : matching
-
-  const portForecast = isLand ? null : await getPortForecast()
-  const forecastNote = portForecast
-    ? ` По прогнозу ML-модели Cargora загрузка порта Актау сейчас ${portForecast.loadPct}% (ожидание ~${portForecast.waitHours} ч); оптимальное окно прибытия груза в порт: ${portForecast.bestWindow}.`
-    : ""
-
-  const groqKey = process.env.GROQ_API_KEY
-
-  if (!groqKey) {
-    const best = [...candidates].sort((a, b) => a.pricePerTeu - b.pricePerTeu)[0]
-    const totalUsd = teuNeeded * best.pricePerTeu
-    const commission = Math.round(totalUsd * 0.02)
-    const unit = isLand ? "грузовик" : "TEU"
-    const unitNeeded = isLand ? "грузовиков" : "TEU"
-    return NextResponse.json({
-      ok: true,
-      transport_type: isLand ? "land" : "ferry",
-      ferry: best,
-      teuNeeded,
-      totalUsd,
-      commission,
-      portForecast,
-      reasoning: isLand
-        ? `Рекомендую перевозчика ${best.id} — ${best.vessel}. Маршрут: ${best.route}, отправление ${best.departure}. Нужно ${teuNeeded} ${unitNeeded} для ${kg.toLocaleString()} кг груза. Срок доставки: ${best.transitDays} дн. Итого: $${totalUsd.toLocaleString()}. Комиссия Cargora 2% = $${commission}.`
-        : `Рекомендую рейс ${best.id} — судно «${best.vessel}». ${best.route}, отправление ${best.departure}. Свободно ${best.availTeu} TEU, требуется ${teuNeeded} TEU для ${kg.toLocaleString()} кг груза. Итого: $${totalUsd.toLocaleString()}. Комиссия Cargora 2% = $${commission}.${forecastNote}`,
-    })
-  }
-
+  let body: Record<string, unknown>
   try {
-    const modeLabel = isLand ? "Сухопутные перевозчики из Актау" : "Паромные рейсы из порта Актау"
-    const unitLabel = isLand ? "грузовиков" : "TEU"
-    const priceLabel = isLand ? "$/грузовик" : "$/TEU"
-
-    const carrierList = candidates
-      .map(
-        (c) =>
-          `${c.id} (${c.vessel}): ${c.route}, отправление ${c.departure}, свободно ${c.availTeu} ${unitLabel}, ${c.pricePerTeu} ${priceLabel}, транзит ${c.transitDays} дн.`
-      )
-      .join("\n")
-
-    const portContext = portForecast
-      ? `\n\nПрогноз загрузки порта Актау (собственная ML-модель Cargora, горизонт 48 ч): сейчас ${portForecast.loadPct}% (~${portForecast.waitHours} ч ожидания), оптимальное окно прибытия груза в порт: ${portForecast.bestWindow} (средняя загрузка ${portForecast.bestWindowLoad}%). Учти это в обосновании одним предложением.`
-      : ""
-
-    const systemPrompt = isLand
-      ? `Ты — AI-диспетчер сухопутной логистики, платформа Cargora. Отвечай ТОЛЬКО на русском, кратко и профессионально.\n\n${modeLabel}:\n${carrierList}\n\nВыбери ОДНОГО лучшего перевозчика. Учти: цену, наличие мест, тип груза, срок. Начни ответ с "Рекомендую перевозчика [ID]", затем 2-3 предложения обоснования и итоговая цена.`
-      : `Ты — AI-диспетчер паромной логистики Каспийского моря, платформа Cargora. Отвечай ТОЛЬКО на русском, кратко и профессионально.\n\n${modeLabel}:\n${carrierList}${portContext}\n\nВыбери ОДИН лучший рейс. Учти: цену, наличие мест, тип груза, срок доставки. Начни ответ с "Рекомендую рейс [ID]", затем 2-3 предложения обоснования и итоговая цена.`
-
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${groqKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Груз: ${cargo_type || "не указан"}, вес ${kg.toLocaleString()} кг${volume ? `, объём ${volume} м³` : ""}, назначение: ${recipient_address || "Алматы"}, желаемая дата: ${delivery_date || "ближайшее время"}.`,
-          },
-        ],
-        max_tokens: 280,
-        temperature: 0.2,
-      }),
-    })
-
-    const data = await res.json()
-    const text: string = data.choices?.[0]?.message?.content ?? ""
-
-    const rec = candidates.find((c) => text.includes(c.id)) ?? candidates[0]
-    const totalUsd = teuNeeded * rec.pricePerTeu
-    const commission = Math.round(totalUsd * 0.02)
-
-    return NextResponse.json({
-      ok: true,
-      transport_type: isLand ? "land" : "ferry",
-      ferry: rec,
-      teuNeeded,
-      totalUsd,
-      commission,
-      portForecast,
-      reasoning:
-        text ||
-        (isLand
-          ? `Рекомендую ${rec.id} — ${rec.route}, отправление ${rec.departure}. Стоимость: $${totalUsd.toLocaleString()}.`
-          : `Рекомендую рейс ${rec.id} — ${rec.route}, отправление ${rec.departure}. Стоимость: $${totalUsd.toLocaleString()}.`),
-    })
+    body = await req.json()
   } catch {
-    const best = candidates[0]
-    const totalUsd = teuNeeded * best.pricePerTeu
-    const commission = Math.round(totalUsd * 0.02)
-    return NextResponse.json({
-      ok: true,
-      transport_type: isLand ? "land" : "ferry",
-      ferry: best,
-      teuNeeded,
-      totalUsd,
-      commission,
-      portForecast,
-      reasoning: isLand
-        ? `Рекомендую ${best.id} — ${best.vessel}. Маршрут ${best.route}, отправление ${best.departure}. Нужно ${teuNeeded} грузовик(ов). Стоимость: $${totalUsd.toLocaleString()}, комиссия Cargora = $${commission}.`
-        : `Рекомендую рейс ${best.id} — судно «${best.vessel}». ${best.route}, отправление ${best.departure}. Нужно ${teuNeeded} TEU. Стоимость: $${totalUsd.toLocaleString()}, комиссия Cargora = $${commission}.${forecastNote}`,
+    return NextResponse.json({ ok: false, error: "Тело запроса не является JSON" }, { status: 400 })
+  }
+
+  const parsed = parseMatchRequest(body)
+  if ("error" in parsed) {
+    return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 })
+  }
+
+  const result = await runMatch(supabase, parsed.request)
+  if ("error" in result) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: 500 })
+  }
+
+  const { settlementNames, carriers, backhaul, alternativeBackhauls, distanceKm, minutes } = result
+
+  const carrier = carriers[0] ?? null
+  const priceKzt = carrier?.suggestedPriceKzt ?? 0
+  const commissionKzt = Math.round(priceKzt * COMMISSION_RATE)
+
+  const fromName = settlementNames.get(parsed.request.fromSettlementId) ?? "—"
+  const toName = settlementNames.get(parsed.request.toSettlementId) ?? "—"
+  const cargoType = String(body.cargo_type ?? body.cargoType ?? "груз")
+
+  // LLM только формулирует. Если ключа нет или Groq не ответил — шаблон.
+  let reasoning: string | null = null
+  const groqKey = process.env.GROQ_API_KEY
+  if (groqKey && carrier) {
+    reasoning = await explainWithLlm(groqKey, {
+      cargoType,
+      weightKg: parsed.request.weightKg,
+      bodyType: parsed.request.bodyType,
+      fromName,
+      toName,
+      distanceKm,
+      carrier,
+      priceKzt,
+      backhaul,
     })
   }
+
+  const response: AiRouteResponse = {
+    ok: true,
+    distanceKm,
+    minutes,
+    carrier,
+    backhaul,
+    alternativeBackhauls,
+    priceKzt,
+    commissionKzt,
+    fromName,
+    toName,
+    llm: reasoning !== null,
+    reasoning:
+      reasoning ??
+      fallbackReasoning(carrier, backhaul, distanceKm, priceKzt, commissionKzt, fromName, toName),
+  }
+
+  return NextResponse.json(response)
 }
