@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import {
-  IconAnchor,
+  IconBuildingBank,
   IconChartBar,
   IconDashboard,
   IconHelp,
@@ -52,7 +52,8 @@ export function AppSidebar({
     { title: t.nav.analytics, url: "/dashboard/analytics", icon: IconChartBar },
     { title: t.nav.customers, url: "/dashboard/customers", icon: IconUsers },
     { title: t.nav.map, url: "/dashboard/map", icon: IconMap2 },
-    { title: t.nav.dispatch, url: "/dashboard/dispatch", icon: IconAnchor },
+    { title: t.nav.dispatch, url: "/dashboard/dispatch", icon: IconTruckDelivery },
+    { title: "Акимат", url: "/dashboard/akimat", icon: IconBuildingBank },
   ]
 
   const navSecondary = [
