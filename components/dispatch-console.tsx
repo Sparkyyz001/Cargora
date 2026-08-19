@@ -84,6 +84,9 @@ export function DispatchConsole({
   const [match, setMatch] = React.useState<MatchResponse | null>(null)
   const [matchLoading, setMatchLoading] = React.useState(false)
   const [taking, setTaking] = React.useState(false)
+  // Вкладки внутри карточки заявки: чат лежал в самом низу длинной
+  // панели, и найти его было невозможно
+  const [cardTab, setCardTab] = React.useState<"work" | "chat">("work")
   // Час выезда машины по открытой заявке фиксируется один раз: если его
   // пересчитывать, при каждом опросе списка машина прыгает в начало пути
   const [orderDepartHour, setOrderDepartHour] = React.useState(0)
@@ -241,6 +244,7 @@ export function DispatchConsole({
     }
     setSelectedId(order.id)
     setMatch(null)
+    setCardTab("work")
     setOrderDepartHour(sim.hour)
 
     if (order.from_settlement_id == null || order.to_settlement_id == null) return
@@ -512,6 +516,46 @@ export function DispatchConsole({
               </Button>
             </div>
 
+            {/* Вкладки: работа с заявкой и переписка */}
+            <div className="border-b p-2">
+              <div className="flex gap-1 rounded-lg bg-muted/60 p-1">
+                <button
+                  onClick={() => setCardTab("work")}
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                    cardTab === "work" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Заявка и подбор
+                </button>
+                <button
+                  onClick={() => setCardTab("chat")}
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                    cardTab === "chat" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Переписка
+                </button>
+              </div>
+            </div>
+
+            {cardTab === "chat" ? (
+              me ? (
+                <div className="p-3">
+                  <OrderChat
+                    orderId={selected.id}
+                    driverKey={match?.carriers[0]?.carrierName ?? selected.driver}
+                    me={me}
+                  />
+                </div>
+              ) : (
+                <p className="p-4 text-sm text-muted-foreground">
+                  Войдите, чтобы писать по заявке.
+                </p>
+              )
+            ) : (
+            <>
             <OrderDetailPanel
               order={selected}
               fromName={names.get(selected.from_settlement_id ?? -1) ?? "—"}
@@ -581,14 +625,9 @@ export function DispatchConsole({
                 {match?.backhaul ? "Взять без обратной загрузки" : "Принять заявку"}
               </Button>
 
-              {me && (
-                <OrderChat
-                  orderId={selected.id}
-                  driverKey={match?.carriers[0]?.carrierName ?? selected.driver}
-                  me={me}
-                />
-              )}
             </div>
+            </>
+            )}
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
