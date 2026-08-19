@@ -19,23 +19,25 @@ export function Hero() {
   return (
     <section className="relative isolate flex min-h-svh flex-col items-center justify-center overflow-hidden bg-slate-950 pb-16 pt-20">
 
-      {/* Фоновое видео */}
+      {/* Фоновое видео Мангистау: 0.6 МБ против прежних 44 МБ, поэтому
+          preload="auto" — первый экран должен появиться сразу, а не после
+          того, как браузер решит подгрузить метаданные */}
       <video
         autoPlay
         muted
         loop
         playsInline
-        preload="metadata"
+        preload="auto"
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover"
-        src="/auth-bg.mp4"
+        src="/hero-mangystau.mp4"
       />
 
       {/* Тёмный градиент поверх видео — текст читается чётко */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10"
-        style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.65) 100%)" }}
+        style={{ background: "linear-gradient(to bottom, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.42) 45%, rgba(2,6,23,0.78) 100%)" }}
       />
 
       <div className="mx-auto max-w-6xl px-4 lg:px-6">
