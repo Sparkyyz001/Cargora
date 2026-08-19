@@ -3,19 +3,35 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-// Реальные водители/операторы Мангистауского транспортного парка
+// Демо-данные для нового аккаунта: заявки, автопарк, маршруты и клиенты
+// по реальным направлениям внутри Мангистауской области.
+//
+// Ключевое: среди заявок намеренно заложена пара под матчинг обратной
+// загрузки — груз Актау → Жанаозен и встречный Жанаозен → Актау в
+// подходящем временном окне. На демо связка должна находиться железно.
+
 const DRIVERS = ["Ахмет С.", "Батыр Ж.", "Нурлан Б.", "Арман Т.", "Серик К.", "Дауит М."]
 
-// Генерация даты относительно сегодня (отрицательный offset = в прошлом)
-function daysAgo(n: number): string {
-  const d = new Date("2026-06-10")
-  d.setDate(d.getDate() - n)
+/** Дата со сдвигом в днях от сегодня (отрицательный — в прошлое). */
+function day(offset: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + offset)
   return d.toISOString().split("T")[0]
+}
+
+/** Момент времени: сегодня + `days` дней, час `hour` по времени Актау (UTC+5). */
+function at(days: number, hour: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  d.setUTCHours(hour - 5, 0, 0, 0)
+  return d.toISOString()
 }
 
 export async function ensureUserData() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return
 
   // Идемпотентность — если данные уже есть, не трогаем
@@ -27,6 +43,15 @@ export async function ensureUserData() {
 
   if ((count ?? 0) > 0) return
 
+  // Справочник НП: сопоставляем названия с id, чтобы не хардкодить числа
+  const { data: settlements } = await supabase.from("settlements").select("id,name,lat,lng")
+  const byName = new Map((settlements ?? []).map((s) => [s.name, s]))
+  const id = (name: string) => byName.get(name)?.id ?? null
+  const at_ = (name: string) => {
+    const s = byName.get(name)
+    return s ? { lat: Number(s.lat), lng: Number(s.lng) } : { lat: 43.6353, lng: 51.1682 }
+  }
+
   // Чистим старое
   await Promise.all([
     supabase.from("orders").delete().eq("user_id", user.id),
@@ -35,271 +60,287 @@ export async function ensureUserData() {
     supabase.from("customers").delete().eq("user_id", user.id),
   ])
 
-  // ─── 22 заказа ─────────────────────────────────────────────────────────────
+  // ─── Заявки ────────────────────────────────────────────────────────────────
   const orders = [
-    // Доставленные — история
+    // ── Доставленные: история для аналитики ──
     {
-      order_number: "МАН-00131", cargo_type: "Нефтепродукты",
-      status: "Доставлен" as const, weight: 24000, volume: 29,
-      driver: `KF-2891 · Казахстан · 14:30`,
-      delivery_date: daysAgo(28),
-      sender_name: "ТОО «МангистауМунай»", sender_phone: "+7 729 201 00 11",
-      sender_address: "Актау, Нефтяной терминал",
-      recipient_name: "LUKOIL Overseas", recipient_phone: "+7 872 200 00 55",
-      recipient_address: "Махачкала, Россия",
+      order_number: "МАН-00131", cargo_type: "Продукты питания",
+      status: "Доставлен" as const, weight: 3200, volume: 14, body_type: "refrigerator",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Жанаозен"),
+      distance_km: 150.68, driver: DRIVERS[0], delivery_date: day(-28),
+      sender_name: "ТОО «Каспий Фуд»", sender_phone: "+7 729 245 10 20",
+      sender_address: "Актау, промзона, база №4",
+      recipient_name: "Магазин «Береке»", recipient_phone: "+7 729 350 11 22",
+      recipient_address: "Жанаозен, мкр Шанырак",
     },
     {
-      order_number: "МАН-00132", cargo_type: "Контейнер ТМТМ",
-      status: "Доставлен" as const, weight: 22000, volume: 36,
-      driver: `AZ-3301 · Дагестан · 20:15`,
-      delivery_date: daysAgo(25),
-      sender_name: "COSCO Shipping KZ", sender_phone: "+7 727 355 11 22",
-      sender_address: "Актау, Морпорт, прич. 3",
-      recipient_name: "DB Cargo Europe", recipient_phone: "+994 12 404 0000",
-      recipient_address: "Баку, порт Алят, Азербайджан",
-    },
-    {
-      order_number: "МАН-00133", cargo_type: "Металлопрокат",
-      status: "Доставлен" as const, weight: 32000, volume: 28,
-      driver: `IR-1201 · Хазар · 08:00`,
-      delivery_date: daysAgo(22),
-      sender_name: "АО «Қазцинк»", sender_phone: "+7 723 200 44 55",
-      sender_address: "Актау, Терминал №2",
-      recipient_name: "Arcelormittal Temirtau", recipient_phone: "+7 721 200 33 00",
-      recipient_address: "Баку, порт Алят",
-    },
-    {
-      order_number: "МАН-00134", cargo_type: "Зерновые грузы",
-      status: "Доставлен" as const, weight: 30000, volume: 42,
-      driver: DRIVERS[3],
-      delivery_date: daysAgo(20),
-      sender_name: "ТОО «КазАгроЭкс»", sender_phone: "+7 729 211 55 66",
-      sender_address: "Бейнеу, зерновой склад",
-      recipient_name: "Tehran Grain Trading", recipient_phone: "+98 21 8800 0000",
-      recipient_address: "Амирабад, Иран",
-    },
-    {
-      order_number: "МАН-00135", cargo_type: "Химические грузы",
-      status: "Доставлен" as const, weight: 9800, volume: 14,
-      driver: `KF-2891 · Казахстан · 14:30`,
-      delivery_date: daysAgo(18),
-      sender_name: "АО «Каустик»", sender_phone: "+7 729 233 10 00",
-      sender_address: "Актау, Химпром",
-      recipient_name: "Туркменхимия", recipient_phone: "+993 12 39 00 00",
-      recipient_address: "Туркменбаши, хим. порт",
-    },
-    {
-      order_number: "МАН-00136", cargo_type: "Нефтепродукты",
-      status: "Доставлен" as const, weight: 21000, volume: 26,
-      driver: `AZ-3301 · Дагестан · 20:15`,
-      delivery_date: daysAgo(15),
-      sender_name: "АО «КазТрансОйл»", sender_phone: "+7 727 244 88 00",
-      sender_address: "Актау, Нефтяной терминал",
-      recipient_name: "SOCAR Petroleum", recipient_phone: "+994 12 555 00 00",
-      recipient_address: "Баку, Нефтчала",
-    },
-    {
-      order_number: "МАН-00137", cargo_type: "Автомобили",
-      status: "Доставлен" as const, weight: 16000, volume: 45,
-      driver: `[LAND] TRK-2891 · КазТрансАвто · КамАЗ 20т · 08:00`,
-      delivery_date: daysAgo(13),
-      sender_name: "ТОО «АвтоИмпорт KZ»", sender_phone: "+7 727 300 50 60",
-      sender_address: "Актау, СЭАЗ",
-      recipient_name: "Дилерский центр Тойота", recipient_phone: "+7 727 356 00 00",
-      recipient_address: "Алматы, мкр Алтай",
-    },
-    {
-      order_number: "МАН-00138", cargo_type: "Металлопрокат",
-      status: "Доставлен" as const, weight: 28000, volume: 30,
-      driver: `RU-0901 · Астрахань · 06:45`,
-      delivery_date: daysAgo(11),
-      sender_name: "ТОО «МетЛогистик»", sender_phone: "+7 729 200 70 80",
-      sender_address: "Бейнеу, ж/д терминал",
-      recipient_name: "Kardemir Steel", recipient_phone: "+993 12 45 00 00",
-      recipient_address: "Туркменбаши, порт",
-    },
-    {
-      order_number: "МАН-00139", cargo_type: "Зерновые грузы",
-      status: "Доставлен" as const, weight: 25000, volume: 40,
-      driver: `IR-1201 · Хазар · 08:00`,
-      delivery_date: daysAgo(9),
-      sender_name: "ТОО «АгроЭкспорт KZ»", sender_phone: "+7 729 220 33 44",
-      sender_address: "Актау, Зерновой терминал",
-      recipient_name: "Иранский экспорт", recipient_phone: "+98 21 7700 0000",
-      recipient_address: "Амирабад, Иран",
-    },
-    {
-      order_number: "МАН-00140", cargo_type: "Строительные материалы",
-      status: "Доставлен" as const, weight: 11500, volume: 16,
-      driver: `[LAND] TRK-3401 · МанТранс · МАЗ 20т · 06:00`,
-      delivery_date: daysAgo(7),
-      sender_name: "ТОО «ЖезқазғанЦемент»", sender_phone: "+7 710 234 55 66",
-      sender_address: "Актау, склад №7",
-      recipient_name: "ГП «ТуркменЗнак»", recipient_phone: "+993 12 55 00 00",
-      recipient_address: "Туркменабад, Туркменистан",
-    },
-    // В пути — активные
-    {
-      order_number: "МАН-00141", cargo_type: "Нефтепродукты",
-      status: "В пути" as const, weight: 18500, volume: 22,
-      driver: `KF-2891 · Казахстан · 14:30`,
-      delivery_date: daysAgo(-1),
-      sender_name: "ТОО «КазМунайТранс»", sender_phone: "+7 729 201 00 00",
-      sender_address: "Актау, Промзона, уч. 14",
-      recipient_name: "Туркменбаши НПЗ", recipient_phone: "+993 12 33 00 00",
-      recipient_address: "Туркменбаши, Туркменистан",
-    },
-    {
-      order_number: "МАН-00142", cargo_type: "Контейнер ТМТМ",
-      status: "В пути" as const, weight: 20500, volume: 34,
-      driver: `AZ-3301 · Дагестан · 20:15`,
-      delivery_date: daysAgo(-2),
-      sender_name: "KTZE (KTZ Express)", sender_phone: "+7 727 355 00 00",
-      sender_address: "Актау, Морпорт, прич. 5",
-      recipient_name: "ADY Container", recipient_phone: "+994 12 490 0000",
-      recipient_address: "Баку, порт Алят",
-    },
-    {
-      order_number: "МАН-00143", cargo_type: "Химические грузы",
-      status: "В пути" as const, weight: 7200, volume: 10,
-      driver: `KF-2891 · Казахстан · 14:30`,
-      delivery_date: daysAgo(-2),
-      sender_name: "ТОО «НефтеХим»", sender_phone: "+7 729 244 33 11",
-      sender_address: "Жанаозен, завод",
-      recipient_name: "Азот-Туркменистан", recipient_phone: "+993 12 40 00 00",
-      recipient_address: "Туркменбаши, хим. порт",
-    },
-    {
-      order_number: "МАН-00144", cargo_type: "Металлопрокат",
-      status: "В пути" as const, weight: 19000, volume: 24,
-      driver: `[LAND] TRK-1204 · КазЛогистик · Volvo FH · 10:00`,
-      delivery_date: daysAgo(-3),
-      sender_name: "АО «Қазцинк»", sender_phone: "+7 723 200 44 55",
-      sender_address: "Актау, Терминал №2",
-      recipient_name: "ТОО «ПромМеталл»", recipient_phone: "+7 727 388 22 11",
-      recipient_address: "Алматы, индустриальная зона",
-    },
-    {
-      order_number: "МАН-00145", cargo_type: "Нефтепродукты",
-      status: "В пути" as const, weight: 23500, volume: 28,
-      driver: `RU-0901 · Астрахань · 06:45`,
-      delivery_date: daysAgo(-1),
-      sender_name: "АО «КазТрансОйл»", sender_phone: "+7 727 244 88 00",
-      sender_address: "Актау, Нефтяной терминал",
-      recipient_name: "ЛУКойл-Нижневолжскнефть", recipient_phone: "+7 851 200 00 00",
-      recipient_address: "Астрахань, Россия",
-    },
-    // Ожидают — очередь
-    {
-      order_number: "МАН-00146", cargo_type: "Строительные материалы",
-      status: "Ожидает отправки" as const, weight: 14000, volume: 18,
-      driver: DRIVERS[4],
-      delivery_date: daysAgo(-4),
+      order_number: "МАН-00132", cargo_type: "Стройматериалы",
+      status: "Доставлен" as const, weight: 18000, volume: 24, body_type: "flatbed",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Шетпе"),
+      distance_km: 162.85, driver: DRIVERS[1], delivery_date: day(-25),
       sender_name: "ТОО «Актауқұрылыс»", sender_phone: "+7 729 255 00 11",
-      sender_address: "Актау, мкр 31",
+      sender_address: "Актау, мкр 31, склад",
+      recipient_name: "ИП Сарсенов", recipient_phone: "+7 729 331 44 55",
+      recipient_address: "Шетпе, ул. Абая",
+    },
+    {
+      order_number: "МАН-00133", cargo_type: "Питьевая вода",
+      status: "Доставлен" as const, weight: 6400, volume: 18, body_type: "tent",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Таушык"),
+      distance_km: 107.2, driver: DRIVERS[3], delivery_date: day(-19),
+      sender_name: "ТОО «Ак Су»", sender_phone: "+7 729 240 77 88",
+      sender_address: "Актау, мкр 27",
+      recipient_name: "Сельский акимат Таушык", recipient_phone: "+7 729 338 00 12",
+      recipient_address: "Таушык, центр",
+    },
+    {
+      order_number: "МАН-00134", cargo_type: "Инертные материалы",
+      status: "Доставлен" as const, weight: 20000, volume: 12, body_type: "dump",
+      from_settlement_id: id("Жетыбай"), to_settlement_id: id("Жанаозен"),
+      distance_km: 75.86, driver: DRIVERS[4], delivery_date: day(-12),
+      sender_name: "Карьер «Жетібай»", sender_phone: "+7 729 320 55 66",
+      sender_address: "Жетыбай, карьер",
       recipient_name: "ТОО «МангКурылыс»", recipient_phone: "+7 729 244 22 33",
-      recipient_address: "Жанаозен, Мангистауская обл.",
+      recipient_address: "Жанаозен, стройплощадка мкр 6",
+    },
+
+    // ── В пути ──
+    {
+      order_number: "МАН-00141", cargo_type: "Товары народного потребления",
+      status: "В пути" as const, weight: 4100, volume: 22, body_type: "tent",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Акшукур"),
+      distance_km: 23.79, driver: DRIVERS[2], delivery_date: day(0),
+      sender_name: "ТОО «Мангистау Трейд»", sender_phone: "+7 729 260 30 40",
+      sender_address: "Актау, оптовая база",
+      recipient_name: "Магазин «Ақшұқыр»", recipient_phone: "+7 729 355 66 77",
+      recipient_address: "Акшукур, ул. Достык",
     },
     {
-      order_number: "МАН-00147", cargo_type: "Контейнер ТМТМ",
-      status: "Ожидает отправки" as const, weight: 19500, volume: 32,
-      driver: DRIVERS[2],
-      delivery_date: daysAgo(-5),
-      sender_name: "China Merchants KZ", sender_phone: "+7 727 300 11 22",
-      sender_address: "Актау, Морпорт, прич. 1",
-      recipient_name: "Hapag-Lloyd Азербайджан", recipient_phone: "+994 12 404 1111",
-      recipient_address: "Баку, порт Алят",
+      order_number: "МАН-00142", cargo_type: "Оборудование для промыслов",
+      status: "В пути" as const, weight: 9800, volume: 16, body_type: "manipulator",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Каламкас"),
+      distance_km: 279.67, driver: DRIVERS[5], delivery_date: day(1),
+      sender_name: "ТОО «НефтеСервис МГ»", sender_phone: "+7 729 222 90 10",
+      sender_address: "Актау, промзона",
+      recipient_name: "Промысел Каламкас", recipient_phone: "+7 729 300 00 90",
+      recipient_address: "Каламкас, вахтовый посёлок",
     },
     {
-      order_number: "МАН-00148", cargo_type: "Зерновые грузы",
-      status: "Ожидает отправки" as const, weight: 26000, volume: 38,
-      driver: DRIVERS[1],
-      delivery_date: daysAgo(-5),
-      sender_name: "ТОО «АгроЭкспорт KZ»", sender_phone: "+7 729 220 33 44",
-      sender_address: "Актау, Зерновой терминал",
-      recipient_name: "Energo Grain Iran", recipient_phone: "+98 21 6600 0000",
-      recipient_address: "Энзели, Иран",
+      order_number: "МАН-00143", cargo_type: "Комбикорм",
+      status: "В пути" as const, weight: 7200, volume: 20, body_type: "tent",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Сенек"),
+      distance_km: 200.22, driver: DRIVERS[1], delivery_date: day(1),
+      sender_name: "ТОО «Агроснаб Актау»", sender_phone: "+7 729 277 12 13",
+      sender_address: "Актау, база «Агро»",
+      recipient_name: "КХ «Сенек»", recipient_phone: "+7 729 340 22 11",
+      recipient_address: "Сенек, ферма",
+    },
+
+    // ── ГЛАВНАЯ ПАРА ПОД МАТЧИНГ ──
+    // Прямой рейс: продукты в рефрижераторе Актау → Жанаозен, забрать завтра к 08:00
+    {
+      order_number: "МАН-00144", cargo_type: "Продукты питания",
+      status: "Ожидает отправки" as const, weight: 3000, volume: 15, body_type: "refrigerator",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Жанаозен"),
+      distance_km: 150.68, driver: null, delivery_date: day(1),
+      pickup_from: at(1, 8), pickup_to: at(1, 11),
+      sender_name: "ТОО «Каспий Фуд»", sender_phone: "+7 729 245 10 20",
+      sender_address: "Актау, промзона, база №4",
+      recipient_name: "Супермаркет «Аружан»", recipient_phone: "+7 729 351 88 99",
+      recipient_address: "Жанаозен, мкр Самал",
+    },
+    // Встречный груз: Жанаозен → Актау, готов к 14:00 того же дня.
+    // Подача 0 км, возврат в исходную точку — связка идеальная.
+    {
+      order_number: "МАН-00145", cargo_type: "Рыбная продукция",
+      status: "Ожидает отправки" as const, weight: 2600, volume: 12, body_type: "refrigerator",
+      from_settlement_id: id("Жанаозен"), to_settlement_id: id("Актау"),
+      distance_km: 150.68, driver: null, delivery_date: day(1),
+      pickup_from: at(1, 14), pickup_to: at(1, 18),
+      sender_name: "ТОО «Озен Балык»", sender_phone: "+7 729 352 40 50",
+      sender_address: "Жанаозен, холодильный склад",
+      recipient_name: "Рынок «Шыгыс»", recipient_phone: "+7 729 246 70 80",
+      recipient_address: "Актау, мкр 12, рынок",
+    },
+
+    // ── Остальная очередь: даёт альтернативы в подборе ──
+    {
+      order_number: "МАН-00146", cargo_type: "Стройматериалы",
+      status: "Ожидает отправки" as const, weight: 14000, volume: 18, body_type: "flatbed",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Жанаозен"),
+      distance_km: 150.68, driver: null, delivery_date: day(2),
+      pickup_from: at(2, 7), pickup_to: at(2, 12),
+      sender_name: "ТОО «Актауқұрылыс»", sender_phone: "+7 729 255 00 11",
+      sender_address: "Актау, мкр 31, склад",
+      recipient_name: "ТОО «МангКурылыс»", recipient_phone: "+7 729 244 22 33",
+      recipient_address: "Жанаозен, стройплощадка мкр 6",
     },
     {
-      order_number: "МАН-00149", cargo_type: "Нефтепродукты",
-      status: "Ожидает отправки" as const, weight: 17000, volume: 21,
-      driver: DRIVERS[0],
-      delivery_date: daysAgo(-6),
-      sender_name: "ТОО «МангистауМунай»", sender_phone: "+7 729 201 00 11",
-      sender_address: "Актау, Нефтяной терминал",
-      recipient_name: "Нафт Иран Интерн.", recipient_phone: "+98 21 9900 0000",
-      recipient_address: "Амирабад, Иран",
+      order_number: "МАН-00147", cargo_type: "Мебель и бытовая техника",
+      status: "Ожидает отправки" as const, weight: 2800, volume: 26, body_type: "tent",
+      from_settlement_id: id("Жанаозен"), to_settlement_id: id("Актау"),
+      distance_km: 150.68, driver: null, delivery_date: day(1),
+      pickup_from: at(1, 16), pickup_to: at(1, 20),
+      sender_name: "Салон «Уют»", sender_phone: "+7 729 353 10 10",
+      sender_address: "Жанаозен, ТЦ «Орда»",
+      recipient_name: "Склад «Мега Актау»", recipient_phone: "+7 729 249 20 30",
+      recipient_address: "Актау, мкр 28",
     },
     {
-      order_number: "МАН-00150", cargo_type: "Автомобили",
-      status: "Ожидает отправки" as const, weight: 12000, volume: 30,
-      driver: DRIVERS[5],
-      delivery_date: daysAgo(-7),
-      sender_name: "ТОО «АвтоИмпорт KZ»", sender_phone: "+7 727 300 50 60",
-      sender_address: "Актау, СЭАЗ",
-      recipient_name: "Diler Group Баку", recipient_phone: "+994 12 567 0000",
-      recipient_address: "Баку, Азербайджан",
+      order_number: "МАН-00148", cargo_type: "Продукты питания",
+      status: "Ожидает отправки" as const, weight: 1800, volume: 9, body_type: "refrigerator",
+      from_settlement_id: id("Курык"), to_settlement_id: id("Актау"),
+      distance_km: 71.02, driver: null, delivery_date: day(1),
+      pickup_from: at(1, 13), pickup_to: at(1, 17),
+      sender_name: "ИП Ералиев", sender_phone: "+7 729 336 55 44",
+      sender_address: "Курык, рыбный цех",
+      recipient_name: "Кафе «Достар»", recipient_phone: "+7 729 247 33 22",
+      recipient_address: "Актау, мкр 15",
     },
     {
-      order_number: "МАН-00151", cargo_type: "Химические грузы",
-      status: "Ожидает отправки" as const, weight: 8400, volume: 12,
-      driver: DRIVERS[3],
-      delivery_date: daysAgo(-8),
-      sender_name: "АО «Каустик»", sender_phone: "+7 729 233 10 00",
-      sender_address: "Актау, Химпром",
-      recipient_name: "Petkim Petrochemical", recipient_phone: "+994 12 400 0000",
-      recipient_address: "Баку, Азербайджан",
+      order_number: "МАН-00149", cargo_type: "Инертные материалы",
+      status: "Ожидает отправки" as const, weight: 19000, volume: 11, body_type: "dump",
+      from_settlement_id: id("Шетпе"), to_settlement_id: id("Актау"),
+      distance_km: 162.85, driver: null, delivery_date: day(2),
+      pickup_from: at(2, 8), pickup_to: at(2, 14),
+      sender_name: "Карьер «Шетпе»", sender_phone: "+7 729 332 11 00",
+      sender_address: "Шетпе, карьер",
+      recipient_name: "ТОО «Актау Бетон»", recipient_phone: "+7 729 258 90 00",
+      recipient_address: "Актау, бетонный узел",
     },
     {
-      order_number: "МАН-00152", cargo_type: "Металлопрокат",
-      status: "Ожидает отправки" as const, weight: 31000, volume: 35,
-      driver: DRIVERS[2],
-      delivery_date: daysAgo(-9),
-      sender_name: "ТОО «КазМеталлЭкс»", sender_phone: "+7 729 266 44 55",
-      sender_address: "Актау, Терминал №3",
-      recipient_name: "TMT Steel Туркменистан", recipient_phone: "+993 12 50 00 00",
-      recipient_address: "Туркменбаши, порт",
+      order_number: "МАН-00150", cargo_type: "Питьевая вода",
+      status: "Ожидает отправки" as const, weight: 5200, volume: 16, body_type: "tent",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Уштаган"),
+      distance_km: 206.84, driver: null, delivery_date: day(3),
+      pickup_from: at(3, 7), pickup_to: at(3, 11),
+      sender_name: "ТОО «Ак Су»", sender_phone: "+7 729 240 77 88",
+      sender_address: "Актау, мкр 27",
+      recipient_name: "Сельский акимат Уштаган", recipient_phone: "+7 729 339 10 20",
+      recipient_address: "Уштаган, центр",
+    },
+    {
+      order_number: "МАН-00151", cargo_type: "Товары народного потребления",
+      status: "Ожидает отправки" as const, weight: 3400, volume: 19, body_type: "tent",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Форт-Шевченко"),
+      distance_km: 144.59, driver: null, delivery_date: day(2),
+      pickup_from: at(2, 9), pickup_to: at(2, 13),
+      sender_name: "ТОО «Мангистау Трейд»", sender_phone: "+7 729 260 30 40",
+      sender_address: "Актау, оптовая база",
+      recipient_name: "Магазин «Каспий»", recipient_phone: "+7 729 337 22 33",
+      recipient_address: "Форт-Шевченко, ул. Кунанбаева",
+    },
+    {
+      order_number: "МАН-00152", cargo_type: "Оборудование для промыслов",
+      status: "Ожидает отправки" as const, weight: 11500, volume: 14, body_type: "manipulator",
+      from_settlement_id: id("Жанаозен"), to_settlement_id: id("Жетыбай"),
+      distance_km: 75.86, driver: null, delivery_date: day(2),
+      pickup_from: at(2, 10), pickup_to: at(2, 15),
+      sender_name: "ТОО «Озенмунайсервис»", sender_phone: "+7 729 354 60 70",
+      sender_address: "Жанаозен, промбаза",
+      recipient_name: "Промысел Жетыбай", recipient_phone: "+7 729 321 00 40",
+      recipient_address: "Жетыбай, участок 3",
     },
   ]
 
-  // ─── 6 единиц автопарка ────────────────────────────────────────────────────
+  // ─── Автопарк ──────────────────────────────────────────────────────────────
+  // Позиции машин разбросаны по области — от них считается порожняя подача.
   const vehicles = [
-    { vehicle_code: "АКТ-01", plate: "А 123 ВС 16", driver: DRIVERS[0], status: "В рейсе" as const,  load_percent: 92, route: "Актау → Туркменбаши" },
-    { vehicle_code: "АКТ-02", plate: "В 456 КМ 16", driver: DRIVERS[1], status: "В рейсе" as const,  load_percent: 78, route: "Актау → Баку (Алят)" },
-    { vehicle_code: "АКТ-03", plate: "С 789 РН 16", driver: DRIVERS[2], status: "Свободна" as const, load_percent: 0,  route: "—" },
-    { vehicle_code: "АКТ-04", plate: "Н 321 ЕК 16", driver: DRIVERS[3], status: "На ТО" as const,    load_percent: 0,  route: "Сервис, Актау" },
-    { vehicle_code: "БЕЙ-05", plate: "М 654 ОР 16", driver: DRIVERS[4], status: "В рейсе" as const,  load_percent: 95, route: "Бейнеу → Болашак КПП" },
-    { vehicle_code: "БЕЙ-06", plate: "К 987 АХ 16", driver: DRIVERS[5], status: "Свободна" as const, load_percent: 0,  route: "—" },
+    {
+      vehicle_code: "АКТ-01", plate: "A 123 BCA 16", driver: DRIVERS[0], status: "Свободна" as const,
+      load_percent: 0, route: "—", body_type: "refrigerator", capacity_kg: 10000,
+      home_settlement_id: id("Актау"), ...coords(at_("Актау")),
+    },
+    {
+      vehicle_code: "АКТ-02", plate: "B 456 KMA 16", driver: DRIVERS[1], status: "Свободна" as const,
+      load_percent: 0, route: "—", body_type: "tent", capacity_kg: 20000,
+      home_settlement_id: id("Актау"), ...coords(at_("Актау")),
+    },
+    {
+      vehicle_code: "АКТ-03", plate: "C 789 PHA 16", driver: DRIVERS[2], status: "В рейсе" as const,
+      load_percent: 84, route: "Актау → Акшукур", body_type: "tent", capacity_kg: 20000,
+      home_settlement_id: id("Актау"), ...coords(at_("Акшукур")),
+    },
+    {
+      vehicle_code: "АКТ-04", plate: "H 321 EKA 16", driver: DRIVERS[3], status: "На ТО" as const,
+      load_percent: 0, route: "Сервис, Актау", body_type: "dump", capacity_kg: 25000,
+      home_settlement_id: id("Актау"), ...coords(at_("Актау")),
+    },
+    {
+      vehicle_code: "ЖАН-05", plate: "M 654 OPA 16", driver: DRIVERS[4], status: "Свободна" as const,
+      load_percent: 0, route: "—", body_type: "dump", capacity_kg: 25000,
+      home_settlement_id: id("Жанаозен"), ...coords(at_("Жанаозен")),
+    },
+    {
+      vehicle_code: "ЖАН-06", plate: "K 987 AXA 16", driver: DRIVERS[5], status: "Свободна" as const,
+      load_percent: 0, route: "—", body_type: "refrigerator", capacity_kg: 5000,
+      home_settlement_id: id("Жанаозен"), ...coords(at_("Жанаозен")),
+    },
+    {
+      vehicle_code: "ШЕТ-07", plate: "P 147 CBA 16", driver: DRIVERS[0], status: "Свободна" as const,
+      load_percent: 0, route: "—", body_type: "flatbed", capacity_kg: 20000,
+      home_settlement_id: id("Шетпе"), ...coords(at_("Шетпе")),
+    },
+    {
+      vehicle_code: "ЖЕТ-08", plate: "T 258 MHA 16", driver: DRIVERS[1], status: "В рейсе" as const,
+      load_percent: 91, route: "Жетыбай → Жанаозен", body_type: "dump", capacity_kg: 25000,
+      home_settlement_id: id("Жетыбай"), ...coords(at_("Жетыбай")),
+    },
+    {
+      vehicle_code: "КУР-09", plate: "R 369 KTA 16", driver: DRIVERS[2], status: "Свободна" as const,
+      load_percent: 0, route: "—", body_type: "refrigerator", capacity_kg: 5000,
+      home_settlement_id: id("Курык"), ...coords(at_("Курык")),
+    },
+    {
+      vehicle_code: "АКТ-10", plate: "S 741 BHA 16", driver: DRIVERS[3], status: "Свободна" as const,
+      load_percent: 0, route: "—", body_type: "manipulator", capacity_kg: 12000,
+      home_settlement_id: id("Актау"), ...coords(at_("Актау")),
+    },
+    {
+      vehicle_code: "БЕЙ-11", plate: "N 852 OKA 16", driver: DRIVERS[4], status: "В рейсе" as const,
+      load_percent: 72, route: "Шетпе → Бейнеу", body_type: "tent", capacity_kg: 20000,
+      home_settlement_id: id("Бейнеу"), ...coords(at_("Бейнеу")),
+    },
+    {
+      vehicle_code: "ФШ-12", plate: "L 963 PMA 16", driver: DRIVERS[5], status: "Свободна" as const,
+      load_percent: 0, route: "—", body_type: "tent", capacity_kg: 10000,
+      home_settlement_id: id("Форт-Шевченко"), ...coords(at_("Форт-Шевченко")),
+    },
   ]
 
-  // ─── 6 маршрутов ──────────────────────────────────────────────────────────
+  // ─── Маршруты ─────────────────────────────────────────────────────────────
   const routes = [
-    { route_code: "ТМТМ-1042", from_city: "Порт Актау",  to_city: "Туркменбаши",  driver: DRIVERS[0], eta: "8ч 30м",  progress: 68, status: "В пути" as const },
-    { route_code: "ТМТМ-1043", from_city: "Порт Актау",  to_city: "Баку (Алят)",  driver: DRIVERS[1], eta: "11ч 20м", progress: 41, status: "В пути" as const },
-    { route_code: "МАН-1044",  from_city: "Бейнеу",       to_city: "Болашак КПП", driver: DRIVERS[4], eta: "1ч 45м",  progress: 88, status: "Завершается" as const },
-    { route_code: "МАН-1045",  from_city: "Жанаозен",     to_city: "Порт Актау",  driver: "—",        eta: "—",       progress: 0,  status: "Запланирован" as const },
-    { route_code: "МАН-1046",  from_city: "Актау",         to_city: "Алматы",      driver: DRIVERS[2], eta: "18ч 00м", progress: 24, status: "В пути" as const },
-    { route_code: "МАН-1047",  from_city: "Актау",         to_city: "Атырау",      driver: DRIVERS[3], eta: "5ч 10м",  progress: 55, status: "В пути" as const },
+    { route_code: "МАН-1041", from_city: "Актау",    to_city: "Акшукур",       driver: DRIVERS[2], eta: "25 мин",  progress: 84, status: "Завершается" as const },
+    { route_code: "МАН-1042", from_city: "Актау",    to_city: "Каламкас",      driver: DRIVERS[5], eta: "6ч 00м",  progress: 38, status: "В пути" as const },
+    { route_code: "МАН-1043", from_city: "Жетыбай",  to_city: "Жанаозен",      driver: DRIVERS[1], eta: "1ч 00м",  progress: 91, status: "Завершается" as const },
+    { route_code: "МАН-1044", from_city: "Актау",    to_city: "Сенек",         driver: DRIVERS[1], eta: "2ч 55м",  progress: 46, status: "В пути" as const },
+    { route_code: "МАН-1045", from_city: "Шетпе",    to_city: "Бейнеу",        driver: DRIVERS[4], eta: "3ч 38м",  progress: 72, status: "В пути" as const },
+    { route_code: "МАН-1046", from_city: "Актау",    to_city: "Жанаозен",      driver: "—",        eta: "—",       progress: 0,  status: "Запланирован" as const },
   ]
 
-  // ─── 8 клиентов ───────────────────────────────────────────────────────────
+  // ─── Клиенты ──────────────────────────────────────────────────────────────
   const customers = [
-    { name: "ТОО «КазМунайТранс»",       city: "Актау",    orders_count: 284, status: "Активный" as const, revenue: "₸ 142 млн" },
-    { name: "АО «НМСК Казмортрансфлот»", city: "Актау",    orders_count: 196, status: "Активный" as const, revenue: "₸ 98 млн"  },
-    { name: "ТОО «КаспийЛогистик»",      city: "Актау",    orders_count: 138, status: "Активный" as const, revenue: "₸ 67 млн"  },
-    { name: "KTZE — KTZ Express",        city: "Астана",   orders_count: 112, status: "Активный" as const, revenue: "₸ 54 млн"  },
-    { name: "АО «КазТрансОйл»",          city: "Актау",    orders_count:  89, status: "Активный" as const, revenue: "₸ 44 млн"  },
-    { name: "ТОО «МангТрансОйл»",        city: "Жанаозен", orders_count:  74, status: "На паузе" as const, revenue: "₸ 31 млн"  },
-    { name: "ТОО «АгроЭкспорт KZ»",      city: "Бейнеу",   orders_count:  61, status: "Активный" as const, revenue: "₸ 18 млн"  },
-    { name: "ИП Джаксыбеков А.",         city: "Актау",    orders_count:  43, status: "Новый"    as const, revenue: "₸ 8,4 млн" },
+    { name: "ТОО «Каспий Фуд»",         city: "Актау",         orders_count: 184, status: "Активный" as const, revenue: "₸ 48 млн"  },
+    { name: "ТОО «Актауқұрылыс»",       city: "Актау",         orders_count: 152, status: "Активный" as const, revenue: "₸ 41 млн"  },
+    { name: "ТОО «Мангистау Трейд»",    city: "Актау",         orders_count: 137, status: "Активный" as const, revenue: "₸ 33 млн"  },
+    { name: "ТОО «МангКурылыс»",        city: "Жанаозен",      orders_count:  98, status: "Активный" as const, revenue: "₸ 27 млн"  },
+    { name: "ТОО «Озенмунайсервис»",    city: "Жанаозен",      orders_count:  76, status: "Активный" as const, revenue: "₸ 22 млн"  },
+    { name: "ТОО «Ак Су»",              city: "Актау",         orders_count:  64, status: "На паузе" as const, revenue: "₸ 14 млн"  },
+    { name: "КХ «Сенек»",               city: "Сенек",         orders_count:  31, status: "Новый"    as const, revenue: "₸ 5,2 млн" },
+    { name: "Магазин «Каспий»",         city: "Форт-Шевченко", orders_count:  27, status: "Новый"    as const, revenue: "₸ 4,1 млн" },
   ]
 
   await Promise.all([
-    supabase.from("orders").insert(orders.map(o => ({ ...o, user_id: user.id }))),
-    supabase.from("vehicles").insert(vehicles.map(v => ({ ...v, user_id: user.id }))),
-    supabase.from("routes").insert(routes.map(r => ({ ...r, user_id: user.id }))),
-    supabase.from("customers").insert(customers.map(c => ({ ...c, user_id: user.id }))),
+    supabase.from("orders").insert(orders.map((o) => ({ ...o, user_id: user.id }))),
+    supabase.from("vehicles").insert(vehicles.map((v) => ({ ...v, user_id: user.id }))),
+    supabase.from("routes").insert(routes.map((r) => ({ ...r, user_id: user.id }))),
+    supabase.from("customers").insert(customers.map((c) => ({ ...c, user_id: user.id }))),
   ])
 
   revalidatePath("/dashboard", "layout")
+}
+
+/** Позиция машины с небольшим детерминированным разбросом внутри НП. */
+function coords(base: { lat: number; lng: number }) {
+  return { current_lat: base.lat, current_lng: base.lng }
 }
