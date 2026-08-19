@@ -23,20 +23,20 @@ const TO = [
 
 const PHOTOS = [
   {
-    img: "https://images.unsplash.com/photo-1759354017689-cf8b886b9f41?auto=format&fit=crop&w=400&h=600&q=80",
-    alt: "Трасса в степи Мангистау",
+    img: "/photos/steppe-road.jpg",
+    alt: "Фура на грунтовой дороге в степи",
     overlay: null,
     bg: "linear-gradient(160deg,#0e7490,#0c4a6e)",
   },
   {
-    img: "https://images.unsplash.com/photo-1759272840538-ae4b07214c71?auto=format&fit=crop&w=400&h=600&q=80",
-    alt: "Контейнерный терминал",
+    img: "/photos/warehouse.jpg",
+    alt: "Складская обработка груза",
     overlay: "Эффективность на каждом этапе маршрута",
     bg: "linear-gradient(160deg,#334155,#0f172a)",
   },
   {
-    img: "https://images.unsplash.com/photo-1774116196662-a9e1e4fa1612?auto=format&fit=crop&w=400&h=600&q=80",
-    alt: "Автодоставка по маршруту",
+    img: "/photos/chalk-plateau.jpg",
+    alt: "Самосвалы у мелового плато",
     overlay: null,
     bg: "linear-gradient(160deg,#c2410c,#7c2d12)",
   },

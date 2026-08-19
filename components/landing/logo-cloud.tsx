@@ -9,37 +9,37 @@ const countries = [
   {
     link: "#",
     text: "Актау",
-    image: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=960&h=600&q=80",
+    image: "/photos/chalk-plateau.jpg",
     imagePosition: "50% 50%",
   },
   {
     link: "#",
     text: "Жанаозен",
-    image: "https://images.unsplash.com/photo-1591768575198-88dac53fbd0a?auto=format&fit=crop&w=960&h=600&q=80",
+    image: "/photos/steppe-road.jpg",
     imagePosition: "50% 50%",
   },
   {
     link: "#",
     text: "Шетпе",
-    image: "https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=960&h=600&q=80",
+    image: "/photos/lone-truck.jpg",
     imagePosition: "50% 50%",
   },
   {
     link: "#",
     text: "Курык",
-    image: "https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=960&h=600&q=80",
+    image: "/photos/truck-sunset.jpg",
     imagePosition: "50% 50%",
   },
   {
     link: "#",
     text: "Форт-Шевченко",
-    image: "https://images.unsplash.com/photo-1547448415-e9f5b28e570d?auto=format&fit=crop&w=960&h=600&q=80",
+    image: "/photos/box-truck.jpg",
     imagePosition: "50% 50%",
   },
   {
     link: "#",
     text: "Бейнеу",
-    image: "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=960&h=600&q=80",
+    image: "/photos/warehouse.jpg",
     imagePosition: "50% 50%",
   },
 ]

@@ -17,7 +17,7 @@ const SERVICES: Service[] = [
   {
     label: "Развоз по области",
     desc: "Магазины, стройки, фермы и отдалённые посёлки — от Актау до Бейнеу, 15 населённых пунктов в одной системе.",
-    img: "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=900&h=600&q=80",
+    img: "/photos/chalk-plateau.jpg",
     bg: "linear-gradient(160deg,#1d4ed8,#1e3a8a)",
     span: "lg:col-span-8",
     height: 340,
@@ -25,7 +25,7 @@ const SERVICES: Service[] = [
   {
     label: "Обратная загрузка",
     desc: "Система сама находит встречный груз и показывает экономию в тенге.",
-    img: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&h=600&q=80",
+    img: "/photos/box-truck.jpg",
     bg: "linear-gradient(160deg,#047857,#064e3b)",
     span: "lg:col-span-4",
     height: 340,
@@ -33,7 +33,7 @@ const SERVICES: Service[] = [
   {
     label: "Отдалённые посёлки",
     desc: "Доставка товаров первой необходимости туда, куда обычно не берутся ехать.",
-    img: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=600&h=500&q=80",
+    img: "/photos/truck-sunset.jpg",
     bg: "linear-gradient(160deg,#b45309,#78350f)",
     span: "lg:col-span-4",
     height: 280,
@@ -41,7 +41,7 @@ const SERVICES: Service[] = [
   {
     label: "Складская обработка",
     desc: "Кросс-докинг и паллетирование на базах в Актау и Жанаозене.",
-    img: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=600&h=500&q=80",
+    img: "/photos/warehouse.jpg",
     bg: "linear-gradient(160deg,#475569,#1e293b)",
     span: "lg:col-span-4",
     height: 280,
@@ -49,7 +49,7 @@ const SERVICES: Service[] = [
   {
     label: "Электронные документы",
     desc: "Накладные и акты приёмки — оформляются до выезда машины на рейс.",
-    img: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&h=500&q=80",
+    img: "/photos/box-truck.jpg",
     bg: "linear-gradient(160deg,#334155,#0f172a)",
     span: "lg:col-span-4",
     height: 280,
