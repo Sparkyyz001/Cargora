@@ -79,6 +79,7 @@ export type FleetMapProps = {
 export function FleetMap({ trips, simHour, focusRoute, backhaulRoute, soloTripId = null }: FleetMapProps) {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [ready, setReady] = React.useState(false)
 
   const mapRef = React.useRef<MapInstance | null>(null)
   const mapglRef = React.useRef<MapGL | null>(null)
@@ -108,6 +109,7 @@ export function FleetMap({ trips, simHour, focusRoute, backhaulRoute, soloTripId
         style: "e05ac437-fcc2-4845-ad74-b1de9ce07555",
       })
       mapRef.current = map
+      setReady(true)
 
       // Населённые пункты: размер кружка по населению, отдалённые янтарём
       for (const s of SETTLEMENTS) {
@@ -134,23 +136,6 @@ size: [0, 0],
         )
       }
 
-      // Фоновые нитки плеч держим отдельно от посёлков: в режиме «только
-      // выбранный рейс» они снимаются, а посёлки остаются
-      const drawn = new Set<string>()
-      for (const trip of trips) {
-        const key = `${trip.fromId}-${trip.toId}`
-        if (drawn.has(key)) continue
-        drawn.add(key)
-        const road = roadBetween(trip.fromId, trip.toId)
-        if (!road) continue
-        lanesRef.current.push(
-          new mapgl.Polyline(map, {
-            coordinates: road,
-            width: 2,
-            color: "#475569",
-          }) as unknown as Destroyable,
-        )
-      }
     })
 
     return () => {
@@ -184,9 +169,10 @@ size: [0, 0],
       const progress = (simHour - trip.departHour) / trip.durationHours
       const existing = truckRef.current.get(trip.id)
 
-      // Выбран конкретный рейс — остальные с карты убираем, чтобы
-      // не читать десяток линий одновременно
-      const hidden = soloTripId != null && trip.id !== soloTripId
+      // Соло-режим: выбран рейс или открыта заявка — на карте остаётся
+      // одна машина, иначе десяток линий читать невозможно
+      const solo = soloTripId != null || Boolean(focusRoute)
+      const hidden = solo && trip.id !== soloTripId
 
       // Рейс ещё не начался, уже завершён или скрыт — машины на карте нет
       if (hidden || progress < 0 || progress > 1) {
@@ -228,18 +214,37 @@ size: [0, 0],
         })
       }
     }
-  }, [simHour, trips, soloTripId])
+  }, [simHour, trips, soloTripId, focusRoute, ready])
 
-  // ── Фоновые плечи видны только когда ничего не выбрано ──
+  // ── Фоновые нитки плеч ──
+  // Рисуются только когда ничего не выбрано. Гасить их прозрачностью нельзя:
+  // у полилинии 2GIS нет setOpacity, поэтому линии просто пересоздаются.
   React.useEffect(() => {
-    const visible = soloTripId == null && !focusRoute
-    for (const lane of lanesRef.current) {
-      const setter = (lane as unknown as { setOpacity?: (v: number) => void }).setOpacity
-      try {
-        setter?.call(lane, visible ? 1 : 0)
-      } catch {}
+    const map = mapRef.current
+    const mapgl = mapglRef.current
+    if (!map || !mapgl) return
+
+    lanesRef.current.forEach((o) => o.destroy())
+    lanesRef.current = []
+
+    if (soloTripId != null || focusRoute) return
+
+    const drawn = new Set<string>()
+    for (const trip of trips) {
+      const key = `${trip.fromId}-${trip.toId}`
+      if (drawn.has(key)) continue
+      drawn.add(key)
+      const road = roadBetween(trip.fromId, trip.toId)
+      if (!road) continue
+      lanesRef.current.push(
+        new mapgl.Polyline(map, {
+          coordinates: road,
+          width: 2,
+          color: "#475569",
+        }) as unknown as Destroyable,
+      )
     }
-  }, [soloTripId, focusRoute])
+  }, [trips, soloTripId, focusRoute, ready])
 
   // ── Подсветка выбранной заявки и её обратной загрузки ──
   React.useEffect(() => {
@@ -301,7 +306,7 @@ size: [0, 0],
         )
       } catch {}
     }
-  }, [focusRoute, backhaulRoute])
+  }, [focusRoute, backhaulRoute, ready])
 
   if (error) {
     return (

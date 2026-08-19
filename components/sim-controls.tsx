@@ -23,12 +23,17 @@ export function useSimulation() {
   React.useEffect(() => {
     if (!playing) return
 
-    // Один шаг в 200 мс, чтобы движение было плавным, а не рывками
+    // Один шаг в 200 мс — движение плавное, а не рывками
     const STEP_MS = 200
+
     const timer = setInterval(() => {
       setHour((h) => {
-        // За STEP_MS проходит speed × 6 симулированных минут
-        const next = h + (speed * STEP_MS) / 60_000 * 6
+        // На 1x одна симулированная минута проходит за реальную секунду:
+        // рабочий день области (19 часов) занимает 19 минут, на 10x — меньше
+        // двух, на 30x — сорок секунд. Прежняя формула гнала в шесть раз
+        // быстрее и на 1x сутки пролетали за три минуты.
+        const simHoursPerStep = (speed * (STEP_MS / 1000)) / 60
+        const next = h + simHoursPerStep
         if (next >= 24) {
           setPlaying(false)
           return 24

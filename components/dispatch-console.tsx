@@ -90,6 +90,7 @@ export function DispatchConsole({
 
   const soloTrip = trips.find((t) => t.id === soloTripId) ?? null
 
+
   const simStats = React.useMemo(() => {
     let active = 0
     let done = 0
@@ -102,6 +103,40 @@ export function DispatchConsole({
   }, [trips, sim.hour])
 
   const selected = orders.find((o) => o.id === selectedId) ?? null
+
+  // Под открытую заявку добавляем рейс на лету: иначе на карте есть маршрут,
+  // но нет машины, и нажатие play ничего не двигает
+  const ORDER_TRIP_ID = -1
+  const tripsWithOrder: TripMeta[] = React.useMemo(() => {
+    if (!selected || selected.from_settlement_id == null || selected.to_settlement_id == null) {
+      return trips
+    }
+    const leg = distances.find(
+      (d) => d.from_id === selected.from_settlement_id && d.to_id === selected.to_settlement_id,
+    )
+    if (!leg) return trips
+
+    return [
+      ...trips,
+      {
+        id: ORDER_TRIP_ID,
+        label: `${names.get(selected.from_settlement_id) ?? ""} → ${names.get(selected.to_settlement_id) ?? ""}`,
+        fromId: selected.from_settlement_id,
+        toId: selected.to_settlement_id,
+        // Выезд — с текущего момента симуляции, чтобы машина тронулась по play
+        departHour: sim.hour,
+        durationHours: Math.max(0.4, (leg.minutes / 60) * 1.3),
+        cargo: selected.cargo_type,
+        driver: selected.driver ?? "—",
+        fromName: names.get(selected.from_settlement_id) ?? "",
+        toName: names.get(selected.to_settlement_id) ?? "",
+        km: Number(leg.km),
+      },
+    ]
+    // sim.hour намеренно не в зависимостях: иначе рейс пересоздавался бы
+    // каждый тик и машина стояла бы на месте
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, trips, distances, names])
 
   // Маршрут выбранной заявки по реальной дороге — из предрассчитанной
   // геометрии OSM, без обращения к сети
@@ -246,11 +281,11 @@ export function DispatchConsole({
       <div className="relative min-w-0 flex-1">
         <div className={cn("h-full", view === "map" ? "block" : "hidden")}>
           <FleetMap
-            trips={trips}
+            trips={tripsWithOrder}
             simHour={sim.hour}
             focusRoute={focusRoute ?? (soloTrip ? roadBetween(soloTrip.fromId, soloTrip.toId) : null)}
             backhaulRoute={backhaulRoute}
-            soloTripId={soloTripId}
+            soloTripId={selected ? ORDER_TRIP_ID : soloTripId}
           />
         </div>
 
