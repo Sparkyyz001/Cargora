@@ -4,7 +4,7 @@ import * as React from "react"
 import { IconArrowNarrowRight, IconMap2, IconTable } from "@tabler/icons-react"
 
 import { createClient } from "@/lib/supabase/client"
-import { updateOrderStatus, type Order } from "@/lib/actions/orders"
+import { takeBackhaulPair, takeSingleOrder, type Order } from "@/lib/actions/orders"
 import { BODY_TYPE_LABELS, formatKzt, type BodyType } from "@/lib/economics"
 import type { BackhaulSuggestion, MatchResult } from "@/lib/matching"
 
@@ -268,10 +268,14 @@ export function DispatchConsole({
   async function takeBoth(order: Order, suggestion: BackhaulSuggestion) {
     setTaking(true)
     try {
-      await Promise.all([
-        updateOrderStatus(order.id, "В пути"),
-        updateOrderStatus(suggestion.orderId, "В пути"),
-      ])
+      // Записываем не только статус, но и снятый порожняк с экономией —
+      // иначе накопленные цифры на дашборде акимата остаются нулём
+      await takeBackhaulPair({
+        outboundId: order.id,
+        backhaulId: suggestion.orderId,
+        emptyKmSaved: suggestion.saving.emptyKmSaved,
+        tengeSaved: suggestion.saving.kztSaved,
+      })
       setOrders((prev) => prev.filter((o) => o.id !== order.id && o.id !== suggestion.orderId))
       setSelectedId(null)
       setMatch(null)
@@ -283,7 +287,7 @@ export function DispatchConsole({
   async function takeSingle(order: Order) {
     setTaking(true)
     try {
-      await updateOrderStatus(order.id, "В пути")
+      await takeSingleOrder(order.id)
       setOrders((prev) => prev.filter((o) => o.id !== order.id))
       setSelectedId(null)
       setMatch(null)

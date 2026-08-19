@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import type { Order } from "@/lib/actions/orders"
-import { deleteOrder, seedDemoOrders, updateOrderDriver, updateOrderStatus } from "@/lib/actions/orders"
+import { deleteOrder, markDelivered, seedDemoOrders, updateOrderDriver } from "@/lib/actions/orders"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { OrderTrackingDialog } from "@/components/order-tracking-dialog"
@@ -96,16 +96,22 @@ export function OrdersClient({ orders: initialOrders }: { orders: Order[] }) {
     }
   }
 
-  async function handleStatusChange(id: number, status: Order["status"]) {
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)))
-    const result = await updateOrderStatus(id, status)
-    if (result.error) toast.error(result.error)
-  }
-
   async function handleDriverChange(id: number, driver: string) {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, driver } : o)))
     const result = await updateOrderDriver(id, driver)
     if (result.error) toast.error(result.error)
+  }
+
+  async function handleDeliver(id: number) {
+    setLoading(id)
+    const result = await markDelivered(id)
+    setLoading(null)
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+    toast.success("Груз выгружен, заявка закрыта")
+    router.refresh()
   }
 
   async function handleDelete(id: number) {
@@ -172,6 +178,20 @@ export function OrdersClient({ orders: initialOrders }: { orders: Order[] }) {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
+                    {/* Выгрузка — единственный способ закрыть заявку.
+                        Статус нельзя переставить произвольно, но событие
+                        «груз выгружен» должно быть, иначе рейс висит вечно. */}
+                    {order.status === "В пути" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400"
+                        disabled={loading === order.id}
+                        onClick={() => handleDeliver(order.id)}
+                      >
+                        {loading === order.id ? "..." : "Груз выгружен"}
+                      </Button>
+                    )}
                     <OrderTrackingDialog order={order} />
                     <Button
                       variant="ghost"

@@ -137,6 +137,91 @@ export async function updateOrderStatus(id: number, status: Order["status"]) {
   return { success: true }
 }
 
+/**
+ * Перевозчик берёт связку: прямой рейс плюс обратный груз.
+ *
+ * Кроме статуса записывает то, ради чего платформа существует — сколько
+ * порожних километров и тенге сняла эта связка. Без этого накопленная
+ * экономия на дашборде акимата остаётся нулём, и весь экономический
+ * аргумент повисает в воздухе.
+ */
+export async function takeBackhaulPair(params: {
+  outboundId: number
+  backhaulId: number
+  emptyKmSaved: number
+  tengeSaved: number
+}) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Не авторизован" }
+
+  const { outboundId, backhaulId, emptyKmSaved, tengeSaved } = params
+
+  // Экономию пишем на прямой рейс: она принадлежит связке целиком,
+  // а не каждому плечу по отдельности — иначе при суммировании удвоится
+  const [outbound, backhaul] = await Promise.all([
+    supabase
+      .from("orders")
+      .update({
+        status: "В пути",
+        carrier_id: user.id,
+        matched_backhaul_id: backhaulId,
+        empty_km_saved: Math.round(emptyKmSaved * 100) / 100,
+        tenge_saved: Math.round(tengeSaved),
+      })
+      .eq("id", outboundId),
+    supabase
+      .from("orders")
+      .update({
+        status: "В пути",
+        carrier_id: user.id,
+        matched_backhaul_id: outboundId,
+      })
+      .eq("id", backhaulId),
+  ])
+
+  const error = outbound.error ?? backhaul.error
+  if (error) return { error: error.message }
+
+  revalidatePath("/dashboard", "layout")
+  return { success: true }
+}
+
+/** Перевозчик берёт одиночный рейс — обратный возврат будет порожним. */
+export async function takeSingleOrder(id: number) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Не авторизован" }
+
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "В пути", carrier_id: user.id })
+    .eq("id", id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/dashboard", "layout")
+  return { success: true }
+}
+
+/** Груз выгружен: заявка закрывается. */
+export async function markDelivered(id: number) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "Доставлен" })
+    .eq("id", id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/dashboard", "layout")
+  return { success: true }
+}
+
 export async function updateOrderDriver(id: number, driver: string) {
   const supabase = await createClient()
   const { error } = await supabase
