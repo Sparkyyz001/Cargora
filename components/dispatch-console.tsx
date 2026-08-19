@@ -297,7 +297,7 @@ export function DispatchConsole({
   }
 
   return (
-    <div className="relative flex h-[calc(100svh-var(--header-height))] overflow-hidden">
+    <div className="relative flex h-[calc(100svh-var(--header-height))] flex-col overflow-hidden lg:flex-row">
       {/* Вспышка на новую заявку */}
       <div
         className="pointer-events-none absolute inset-0 z-30 transition-opacity duration-500"
@@ -308,7 +308,12 @@ export function DispatchConsole({
       />
 
       {/* ── Карта ── */}
-      <div className="relative min-w-0 flex-1">
+      <div className={cn(
+        "relative min-w-0 shrink-0 lg:flex-1",
+        // На телефоне карта занимает половину экрана, но прячется,
+        // когда открыта карточка: читать детали важнее, чем видеть карту
+        selected || soloTrip ? "hidden lg:block" : "h-[45svh] lg:h-auto",
+      )}>
         <div className={cn("h-full", view === "map" ? "block" : "hidden")}>
           <FleetMap
             trips={tripsWithOrder}
@@ -358,7 +363,7 @@ export function DispatchConsole({
 
         {/* Плеер симуляции суток */}
         {view === "map" && (
-          <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
+          <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 sm:bottom-4">
             <SimControls
               hour={sim.hour}
               playing={sim.playing}
@@ -373,7 +378,7 @@ export function DispatchConsole({
         )}
 
         {/* Переключатель карта / таблица поверх карты */}
-        <div className="absolute left-4 top-4 z-20 flex gap-1 rounded-lg border bg-background/95 p-1 shadow-sm backdrop-blur">
+        <div className="absolute left-3 top-3 z-20 flex gap-1 rounded-lg border bg-background/95 p-1 shadow-sm backdrop-blur sm:left-4 sm:top-4">
           <button
             onClick={() => setView("map")}
             className={cn(
@@ -399,7 +404,7 @@ export function DispatchConsole({
       </div>
 
       {/* ── Панель справа ── */}
-      <div className="flex w-[400px] shrink-0 flex-col border-l bg-background">
+      <div className="flex min-h-0 flex-1 flex-col border-t bg-background lg:w-[400px] lg:flex-none lg:border-l lg:border-t-0">
         <div className="shrink-0 border-b p-2">
           <div className="flex gap-1 rounded-lg bg-muted/60 p-1">
             <button

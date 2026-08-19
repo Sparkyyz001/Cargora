@@ -82,7 +82,7 @@ export function SimControls({
   const progress = ((hour - SIM_START_HOUR) / (24 - SIM_START_HOUR)) * 100
 
   return (
-    <div className="pointer-events-auto w-[420px] max-w-[calc(100vw-2rem)] rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
+    <div className="pointer-events-auto w-[calc(100vw-1.5rem)] rounded-xl border bg-background/95 p-2.5 shadow-lg backdrop-blur sm:w-[420px] sm:p-3">
       {/* Часы и управление */}
       <div className="flex items-center gap-3">
         <button
@@ -116,7 +116,7 @@ export function SimControls({
               key={s}
               onClick={() => onSpeed(s)}
               className={cn(
-                "rounded px-2 py-1 text-xs font-medium tabular-nums transition-colors",
+                "rounded px-1.5 py-1 text-[11px] font-medium tabular-nums transition-colors sm:px-2 sm:text-xs",
                 speed === s
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground",
@@ -147,7 +147,7 @@ export function SimControls({
       </div>
 
       {/* Счётчики рейсов */}
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+      <div className="mt-3 hidden grid-cols-3 gap-2 text-center sm:grid">
         <div className="rounded-lg bg-muted/60 py-1.5">
           <div className="text-sm font-semibold tabular-nums">{stats.total}</div>
           <div className="text-[10px] text-muted-foreground">рейсов за сутки</div>
