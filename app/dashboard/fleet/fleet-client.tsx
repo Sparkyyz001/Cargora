@@ -100,19 +100,21 @@ export function FleetClient({ vehicles: initialVehicles }: { vehicles: Vehicle[]
                   />
                 </div>
               </div>
-              <Select
-                value={v.status}
-                onValueChange={(val) => handleStatusChange(v.id, val as Vehicle["status"])}
-              >
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="В рейсе">В рейсе</SelectItem>
-                  <SelectItem value="Свободна">Свободна</SelectItem>
-                  <SelectItem value="На ТО">На ТО</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Статус машины отражает факт, а не выбор пользователя:
+                  «в рейсе» ставится взятой заявкой, «свободна» — выгрузкой. */}
+              <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+                <span
+                  className={
+                    "size-2 shrink-0 rounded-full " +
+                    (v.status === "Свободна"
+                      ? "bg-emerald-500"
+                      : v.status === "В рейсе"
+                        ? "bg-amber-500"
+                        : "bg-slate-500")
+                  }
+                />
+                <span className="text-sm">{v.status}</span>
+              </div>
             </CardContent>
           </Card>
         ))}

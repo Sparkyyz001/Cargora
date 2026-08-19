@@ -66,6 +66,17 @@ function EmptyState({ onSeed }: { onSeed: () => void }) {
   )
 }
 
+/** Цвет статуса: ожидание янтарём, движение синим, доставка зелёным. */
+function statusStyle(status: string) {
+  if (status === "В пути" || status === "Жолда") {
+    return "border-blue-500/40 text-blue-600 dark:text-blue-400"
+  }
+  if (status === "Доставлен" || status === "Жеткізілді") {
+    return "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+  }
+  return "border-amber-500/40 text-amber-600 dark:text-amber-400"
+}
+
 export function OrdersClient({ orders: initialOrders }: { orders: Order[] }) {
   const router = useRouter()
   const [orders, setOrders] = React.useState<Order[]>(initialOrders)
@@ -143,19 +154,12 @@ export function OrdersClient({ orders: initialOrders }: { orders: Order[] }) {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Select
-                    value={order.status}
-                    onValueChange={(v) => handleStatusChange(order.id, v as Order["status"])}
-                  >
-                    <SelectTrigger className="h-8 w-44 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Ожидает отправки">Ожидает отправки</SelectItem>
-                      <SelectItem value="В пути">В пути</SelectItem>
-                      <SelectItem value="Доставлен">Доставлен</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* Статус не редактируется руками: он меняется событиями —
+                      перевозчик взял заявку, груз выехал, груз выгружен.
+                      Иначе цифры на дашбордах ничего не значат. */}
+                  <Badge variant="outline" className={statusStyle(order.status)}>
+                    {order.status}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{order.weight ?? "—"}</TableCell>
                 <TableCell className="text-right tabular-nums">{order.volume ?? "—"}</TableCell>

@@ -952,17 +952,11 @@ function TableCellViewer({ item, drivers = CARRIER_OPTIONS }: { item: z.infer<ty
                 </Select>
               </div>
               <div className="flex flex-col gap-3">
-                <Label htmlFor="status">Статус</Label>
-                <Select defaultValue={item.status}>
-                  <SelectTrigger id="status" className="w-full">
-                    <SelectValue placeholder="Выбрать статус" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Доставлен">Доставлен</SelectItem>
-                    <SelectItem value="В пути">В пути</SelectItem>
-                    <SelectItem value="Ожидает отправки">Ожидает отправки</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Статус</Label>
+                {/* Только чтение: статус двигают события перевозки, не форма */}
+                <div className="flex h-9 items-center rounded-md border px-3 text-sm">
+                  {item.status}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
