@@ -61,7 +61,7 @@ function FooterBackgroundVideo() {
       ([entry]) => {
         if (entry.isIntersecting) {
           if (!video.src) {
-            video.src = "/auth-bg.mp4"
+            video.src = "/auth-mangystau.mp4"
             video.load()
           }
           video.play().catch(() => {})

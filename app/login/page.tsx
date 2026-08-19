@@ -159,10 +159,10 @@ function LoginContent() {
           loop
           muted
           playsInline
-          preload="metadata"
+          preload="auto"
           className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src="/auth-bg.mp4" type="video/mp4" />
+          <source src="/auth-mangystau.mp4" type="video/mp4" />
         </video>
 
         {/* Dark overlay для читаемости текста */}
