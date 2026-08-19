@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { BackhaulCard } from "@/components/backhaul-card"
+import { formatKzt, type BodyType } from "@/lib/economics"
+import type { BackhaulSuggestion, MatchResult } from "@/lib/matching"
 
 function playAlert() {
   try {
@@ -51,6 +54,11 @@ export function DispatchView() {
   const [orders, setOrders] = React.useState<Order[]>([])
   const [dismissed, setDismissed] = React.useState<Set<number>>(new Set())
   const [accepting, setAccepting] = React.useState<number | null>(null)
+  // Подбор обратной загрузки: какая заявка раскрыта и что нашлось
+  const [openId, setOpenId] = React.useState<number | null>(null)
+  const [match, setMatch] = React.useState<MatchResult | null>(null)
+  const [matchLoading, setMatchLoading] = React.useState(false)
+  const [takingBoth, setTakingBoth] = React.useState(false)
   const [flash, setFlash] = React.useState(false)
   const [online, setOnline] = React.useState(true)
   const [lastCheck, setLastCheck] = React.useState<Date>(new Date())
@@ -127,6 +135,64 @@ export function DispatchView() {
 
   function handleDecline(id: number) {
     setDismissed((prev) => new Set([...prev, id]))
+    if (openId === id) {
+      setOpenId(null)
+      setMatch(null)
+    }
+  }
+
+  /** Открыть заявку: сразу спросить у сервера машину и обратный груз. */
+  async function handleOpen(order: Order) {
+    if (openId === order.id) {
+      setOpenId(null)
+      setMatch(null)
+      return
+    }
+
+    setOpenId(order.id)
+    setMatch(null)
+
+    if (order.from_settlement_id == null || order.to_settlement_id == null) return
+
+    setMatchLoading(true)
+    try {
+      const res = await fetch("/api/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromSettlementId: order.from_settlement_id,
+          toSettlementId: order.to_settlement_id,
+          weightKg: order.weight ?? 1000,
+          volumeM3: order.volume ?? undefined,
+          bodyType: (order.body_type ?? "tent") as BodyType,
+          pickupFrom: order.pickup_from ?? new Date().toISOString(),
+          pickupTo: order.pickup_to ?? new Date(Date.now() + 86_400_000).toISOString(),
+          excludeOrderId: order.id,
+        }),
+      })
+      const data = await res.json()
+      if (data.ok) setMatch(data as MatchResult)
+    } catch {
+      setMatch(null)
+    } finally {
+      setMatchLoading(false)
+    }
+  }
+
+  /** Взять связку: прямой рейс и обратный груз одним действием. */
+  async function handleTakeBoth(order: Order, suggestion: BackhaulSuggestion) {
+    setTakingBoth(true)
+    try {
+      await Promise.all([
+        updateOrderStatus(order.id, "В пути"),
+        updateOrderStatus(suggestion.orderId, "В пути"),
+      ])
+      setDismissed((prev) => new Set([...prev, order.id, suggestion.orderId]))
+      setOpenId(null)
+      setMatch(null)
+    } finally {
+      setTakingBoth(false)
+    }
   }
 
   const visible = orders.filter((o) => !dismissed.has(o.id))
@@ -177,13 +243,26 @@ export function DispatchView() {
 
           <div className="grid gap-4 md:grid-cols-2">
             {visible.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                accepting={accepting === order.id}
-                onAccept={() => handleAccept(order)}
-                onDecline={() => handleDecline(order.id)}
-              />
+              <div key={order.id} className="flex flex-col gap-3">
+                <OrderCard
+                  order={order}
+                  accepting={accepting === order.id}
+                  opened={openId === order.id}
+                  onOpen={() => handleOpen(order)}
+                  onAccept={() => handleAccept(order)}
+                  onDecline={() => handleDecline(order.id)}
+                />
+
+                {openId === order.id && (
+                  <MatchPanel
+                    loading={matchLoading}
+                    match={match}
+                    bodyType={(order.body_type ?? "tent") as BodyType}
+                    taking={takingBoth}
+                    onTakeBoth={(s) => handleTakeBoth(order, s)}
+                  />
+                )}
+              </div>
             ))}
           </div>
         </>
@@ -202,11 +281,15 @@ export function DispatchView() {
 function OrderCard({
   order,
   accepting,
+  opened,
+  onOpen,
   onAccept,
   onDecline,
 }: {
   order: Order
   accepting: boolean
+  opened: boolean
+  onOpen: () => void
   onAccept: () => void
   onDecline: () => void
 }) {
@@ -258,7 +341,7 @@ function OrderCard({
               <span className="block size-1 rounded-full bg-border" />
             </div>
             <span className="text-[10px] text-muted-foreground">
-              {route?.isLand ? "🛣️ Автодорога" : "🌊 Каспийское море"}
+              {order.distance_km ? `🛣️ ${Math.round(order.distance_km)} км по трассе` : "🛣️ Автодорога"}
             </span>
           </div>
           <div className="flex items-start gap-2">
@@ -271,34 +354,19 @@ function OrderCard({
           </div>
         </div>
 
-        {/* Route card (ferry or land) */}
+        {/* Подобранная машина */}
         {route && (
           <>
             <Separator />
-            <div
-              className={
-                "flex items-center gap-2 rounded-lg px-3 py-2 border " +
-                (route.isLand
-                  ? "bg-amber-500/8 border-amber-500/20"
-                  : "bg-sky-500/8 border-sky-500/20")
-              }
-            >
-              <span className="text-lg">{route.isLand ? "🚛" : "🚢"}</span>
-              <div className="flex-1 min-w-0">
-                <p className={
-                  "text-xs font-bold " +
-                  (route.isLand ? "text-amber-600 dark:text-amber-400" : "text-sky-600 dark:text-sky-400")
-                }>
+            <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2">
+              <span className="text-lg">🚛</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
                   {route.id} · {route.time}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">{route.route}</p>
               </div>
-              <Badge className={
-                "shrink-0 text-[10px] " +
-                (route.isLand
-                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                  : "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20")
-              }>
+              <Badge className="shrink-0 border-amber-500/20 bg-amber-500/10 text-[10px] text-amber-600 dark:text-amber-400">
                 ИИ ✨
               </Badge>
             </div>
@@ -306,27 +374,123 @@ function OrderCard({
         )}
 
         {/* Buttons */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-2">
           <Button
-            variant="outline"
+            variant={opened ? "secondary" : "default"}
             size="sm"
-            className="border-red-500/30 text-red-600 hover:bg-red-500/5 hover:text-red-600 dark:text-red-400"
-            onClick={onDecline}
+            onClick={onOpen}
             disabled={accepting}
           >
-            ✗ Отклонить
+            {opened ? "Свернуть подбор" : "Открыть и подобрать машину"}
           </Button>
-          <Button
-            size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white"
-            onClick={onAccept}
-            disabled={accepting}
-          >
-            {accepting ? "⏳ Принимаю..." : "✓ Принять"}
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-red-500/30 text-red-600 hover:bg-red-500/5 hover:text-red-600 dark:text-red-400"
+              onClick={onDecline}
+              disabled={accepting}
+            >
+              ✗ Отклонить
+            </Button>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={onAccept}
+              disabled={accepting}
+            >
+              {accepting ? "⏳ Принимаю..." : "✓ Принять"}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Результат подбора под открытой заявкой: машины из автопарка и — главное —
+ * карточка обратной загрузки с расчётом экономии.
+ */
+function MatchPanel({
+  loading,
+  match,
+  bodyType,
+  taking,
+  onTakeBoth,
+}: {
+  loading: boolean
+  match: MatchResult | null
+  bodyType: BodyType
+  taking: boolean
+  onTakeBoth: (suggestion: BackhaulSuggestion) => void
+}) {
+  if (loading) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="p-4 text-sm text-muted-foreground">
+          Подбираем машину и обратный груз…
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!match) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="p-4 text-sm text-muted-foreground">
+          Для этой заявки не указаны населённые пункты — подбор недоступен.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {match.backhaul ? (
+        <BackhaulCard
+          suggestion={match.backhaul}
+          alternatives={match.alternativeBackhauls}
+          bodyType={bodyType}
+          taking={taking}
+          onTakeBoth={onTakeBoth}
+        />
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            Встречного груза под это плечо сейчас нет — обратный рейс будет порожним.
+          </CardContent>
+        </Card>
+      )}
+
+      {match.carriers.length > 0 && (
+        <Card>
+          <CardContent className="flex flex-col gap-2 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Свободные машины
+            </p>
+            {match.carriers.slice(0, 3).map((c) => (
+              <div
+                key={c.vehicleId}
+                className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {c.carrierName} · {c.plate}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    подача {Math.round(c.deadheadToPickupKm)} км · {(c.capacityKg / 1000).toFixed(0)} т
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold tabular-nums">
+                  {formatKzt(c.suggestedPriceKzt)}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }
 
@@ -340,7 +504,6 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
       <div className="flex gap-3 text-5xl" style={{ animation: "dispatch-pulse 3s ease-in-out infinite" }}>
-        <span>🚢</span>
         <span>🚛</span>
       </div>
       <div>
@@ -350,7 +513,7 @@ function EmptyState() {
         </p>
       </div>
       <p className="max-w-xs text-xs text-muted-foreground">
-        Создайте паромный или сухопутный заказ — он появится здесь мгновенно
+        Создайте заявку на перевозку по области — она появится здесь мгновенно
       </p>
     </div>
   )

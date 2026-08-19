@@ -19,6 +19,19 @@ export type Order = {
   recipient_phone: string | null
   recipient_address: string | null
   created_at: string
+  // Поля внутрирегиональной перевозки. Необязательные: у заявок, созданных
+  // до миграции, их нет, и весь остальной код продолжает работать.
+  from_settlement_id?: number | null
+  to_settlement_id?: number | null
+  body_type?: string | null
+  pickup_from?: string | null
+  pickup_to?: string | null
+  carrier_id?: string | null
+  matched_backhaul_id?: number | null
+  distance_km?: number | null
+  empty_km_saved?: number | null
+  tenge_saved?: number | null
+  price_kzt?: number | null
 }
 
 export async function getOrders(): Promise<Order[]> {
