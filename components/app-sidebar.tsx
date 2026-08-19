@@ -10,9 +10,9 @@ import {
   IconHelp,
   IconMapPin,
   IconPackage,
+  IconRouteAltLeft,
   IconSettings,
   IconTruckDelivery,
-  IconUsers,
   type Icon,
 } from "@tabler/icons-react"
 
@@ -59,25 +59,29 @@ export function AppSidebar({
 
   const userData = user ?? { name: "Пользователь", email: "", avatar: "" }
 
+  // Разделы названы по пяти направлениям кейса, чтобы соответствие
+  // читалось прямо из меню, а не искалось внутри экранов.
   const groups: { label: string; items: NavItem[] }[] = [
     {
       label: "Операции",
       items: [
         { title: t.nav.overview, url: "/dashboard", icon: IconDashboard },
+        { title: "Биржа и трекинг", url: "/dashboard/dispatch", icon: IconTruckDelivery },
         { title: t.nav.orders, url: "/dashboard/orders", icon: IconPackage },
-        { title: "Биржа заявок", url: "/dashboard/dispatch", icon: IconTruckDelivery },
-        { title: t.nav.routes, url: "/dashboard/routes", icon: IconMapPin },
       ],
     },
     {
-      label: "Ресурсы",
-      items: [{ title: t.nav.customers, url: "/dashboard/customers", icon: IconUsers }],
+      label: "Оптимизация",
+      items: [
+        { title: "Обратная загрузка", url: "/dashboard/optimization", icon: IconRouteAltLeft },
+        { title: "Отдалённые посёлки", url: "/dashboard/settlements", icon: IconMapPin },
+      ],
     },
     {
       label: "Аналитика",
       items: [
-        { title: t.nav.analytics, url: "/dashboard/analytics", icon: IconChartBar },
-        { title: "Акимат", url: "/dashboard/akimat", icon: IconBuildingBank },
+        { title: "Спрос по направлениям", url: "/dashboard/analytics", icon: IconChartBar },
+        { title: "Дашборд акимата", url: "/dashboard/akimat", icon: IconBuildingBank },
       ],
     },
   ]
@@ -134,7 +138,7 @@ export function AppSidebar({
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>{renderItems(group.items)}</SidebarMenu>
-              {group.label === "Ресурсы" && <NavFleet vehicles={vehicles} />}
+              {group.label === "Операции" && <NavFleet vehicles={vehicles} />}
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
