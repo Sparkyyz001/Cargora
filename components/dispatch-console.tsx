@@ -7,12 +7,17 @@ import { createClient } from "@/lib/supabase/client"
 import { updateOrderStatus, type Order } from "@/lib/actions/orders"
 import { BODY_TYPE_LABELS, formatKzt, type BodyType } from "@/lib/economics"
 import type { BackhaulSuggestion, MatchResult } from "@/lib/matching"
+
+/** Что реально возвращает POST /api/match: подбор плюс параметры плеча. */
+type MatchResponse = MatchResult & { distanceKm: number; minutes: number }
 import { cn } from "@/lib/utils"
 import { roadBetween } from "@/lib/route-geometry"
 import { FleetMap } from "@/components/fleet-map"
 import { SimControls, useSimulation } from "@/components/sim-controls"
 import { buildSimTrips, type TripMeta } from "@/lib/sim-trips"
 import { BackhaulCard } from "@/components/backhaul-card"
+import { OrderDetailPanel } from "@/components/order-detail-panel"
+import { findDriver, fullName, driverInitials } from "@/lib/drivers"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -71,7 +76,7 @@ export function DispatchConsole({
   const [orders, setOrders] = React.useState<Order[]>(initialOrders)
   const [selectedId, setSelectedId] = React.useState<number | null>(null)
   const [view, setView] = React.useState<"map" | "table">("map")
-  const [match, setMatch] = React.useState<MatchResult | null>(null)
+  const [match, setMatch] = React.useState<MatchResponse | null>(null)
   const [matchLoading, setMatchLoading] = React.useState(false)
   const [taking, setTaking] = React.useState(false)
   const [flash, setFlash] = React.useState(false)
@@ -231,7 +236,7 @@ export function DispatchConsole({
         }),
       })
       const data = await res.json()
-      if (data.ok) setMatch(data as MatchResult)
+      if (data.ok) setMatch(data as MatchResponse)
     } catch {
       setMatch(null)
     } finally {
@@ -447,59 +452,26 @@ export function DispatchConsole({
         ) : selected ? (
           <div className="flex-1 overflow-y-auto">
             {/* Шапка заявки */}
-            <div className="border-b p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-mono text-sm font-semibold">{selected.order_number}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {timeAgo(selected.created_at)}
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>
-                  Закрыть
-                </Button>
+            <div className="flex items-start justify-between gap-2 border-b p-4">
+              <div className="min-w-0">
+                <p className="font-mono text-sm font-semibold">{selected.order_number}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {timeAgo(selected.created_at)}
+                </p>
               </div>
-
-              <div className="mt-3 flex items-center gap-2 text-sm">
-                <span className="font-medium">
-                  {names.get(selected.from_settlement_id ?? -1) ?? "—"}
-                </span>
-                <IconArrowNarrowRight className="size-4 shrink-0 text-muted-foreground" />
-                <span className="font-medium">
-                  {names.get(selected.to_settlement_id ?? -1) ?? "—"}
-                </span>
-                {selected.distance_km ? (
-                  <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-                    {Math.round(Number(selected.distance_km))} км
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
-                  <div className="text-muted-foreground">Груз</div>
-                  <div className="mt-0.5 font-medium">{selected.cargo_type}</div>
-                </div>
-                <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
-                  <div className="text-muted-foreground">Кузов</div>
-                  <div className="mt-0.5 font-medium">
-                    {BODY_TYPE_LABELS[(selected.body_type ?? "tent") as BodyType]}
-                  </div>
-                </div>
-                <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
-                  <div className="text-muted-foreground">Вес</div>
-                  <div className="mt-0.5 font-medium tabular-nums">
-                    {selected.weight ? `${(selected.weight / 1000).toFixed(1)} т` : "—"}
-                  </div>
-                </div>
-                <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
-                  <div className="text-muted-foreground">Объём</div>
-                  <div className="mt-0.5 font-medium tabular-nums">
-                    {selected.volume ? `${selected.volume} м³` : "—"}
-                  </div>
-                </div>
-              </div>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>
+                Закрыть
+              </Button>
             </div>
+
+            <OrderDetailPanel
+              order={selected}
+              fromName={names.get(selected.from_settlement_id ?? -1) ?? "—"}
+              toName={names.get(selected.to_settlement_id ?? -1) ?? "—"}
+              distanceKm={match?.distanceKm ?? Number(selected.distance_km ?? 0)}
+              minutes={match?.minutes ?? 0}
+              carrier={match?.carriers[0] ?? null}
+            />
 
             {/* Подбор */}
             <div className="flex flex-col gap-3 p-4">
@@ -586,6 +558,19 @@ export function DispatchConsole({
                       </span>
                     </div>
                     <p className="mt-1 truncate text-sm">{o.cargo_type}</p>
+                    {(() => {
+                      const d = findDriver(o.driver)
+                      return d ? (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-amber-500/15 text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+                            {driverInitials(d)}
+                          </span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {fullName(d)} · {d.phone}
+                          </span>
+                        </div>
+                      ) : null
+                    })()}
                     <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="truncate">
                         {names.get(o.from_settlement_id ?? -1) ?? "—"}
