@@ -9,6 +9,10 @@ import {
   IconDashboard,
   IconHelp,
   IconMapPin,
+  IconAddressBook,
+  IconAlertTriangle,
+  IconBell,
+  IconGasStation,
   IconPackage,
   IconRouteAltLeft,
   IconSettings,
@@ -75,6 +79,15 @@ export function AppSidebar({
       items: [
         { title: "Обратная загрузка", url: "/dashboard/optimization", icon: IconRouteAltLeft },
         { title: "Отдалённые посёлки", url: "/dashboard/settlements", icon: IconMapPin },
+      ],
+    },
+    {
+      label: "Ресурсы",
+      items: [
+        { title: "Контакты", url: "/dashboard/contacts", icon: IconAddressBook },
+        { title: "Расход топлива", url: "/dashboard/fuel", icon: IconGasStation },
+        { title: "Инциденты", url: "/dashboard/issues", icon: IconAlertTriangle },
+        { title: "Уведомления", url: "/dashboard/notifications", icon: IconBell },
       ],
     },
     {
