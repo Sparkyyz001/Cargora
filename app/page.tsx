@@ -2,7 +2,7 @@ import dynamic from "next/dynamic"
 
 import { Navbar1 } from "@/components/ui/navbar1"
 import { Hero } from "@/components/landing/hero"
-import { LogoCloud } from "@/components/landing/logo-cloud"
+import { ProblemCost } from "@/components/landing/problem-cost"
 
 // Секции ниже первого экрана — отдельные чанки, не блокируют первую загрузку
 const LpMap = dynamic(() => import("@/components/landing/lp-map").then((m) => m.LpMap))
@@ -19,7 +19,7 @@ export default function Page() {
       <Navbar1 />
       <main>
         <Hero />
-        <LogoCloud />
+        <ProblemCost />
         <LpMap />
         <LpServices />
         <LpSolutions />
