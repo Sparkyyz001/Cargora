@@ -6,10 +6,10 @@ import { motion } from "motion/react"
 import { ChevronDown, ArrowRight } from "lucide-react"
 
 const FROM = [
-  "Актау, Морпорт (KZ)",
-  "Курык, новый порт (KZ)",
-  "Атырау (KZ)",
-  "Бейнеу (KZ)",
+  "Актау",
+  "Курык",
+  "Форт-Шевченко",
+  "Бейнеу",
 ]
 
 const TO = [

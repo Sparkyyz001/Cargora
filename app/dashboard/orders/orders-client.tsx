@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/table"
 
 const CARRIERS = [
-  "ТОО «КазМунайТранс»",
+  "ТОО «Каспий Фуд»",
   "АО «Казмортрансфлот»",
   "ТОО «КаспийЛогистик»",
   "KTZE — KTZ Express",

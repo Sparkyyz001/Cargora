@@ -8,7 +8,6 @@ import {
   IconChartBar,
   IconDashboard,
   IconHelp,
-  IconMap2,
   IconMapPin,
   IconPackage,
   IconSettings,
@@ -68,7 +67,6 @@ export function AppSidebar({
         { title: t.nav.orders, url: "/dashboard/orders", icon: IconPackage },
         { title: "Биржа заявок", url: "/dashboard/dispatch", icon: IconTruckDelivery },
         { title: t.nav.routes, url: "/dashboard/routes", icon: IconMapPin },
-        { title: t.nav.map, url: "/dashboard/map", icon: IconMap2 },
       ],
     },
     {

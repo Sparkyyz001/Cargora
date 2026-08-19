@@ -5,12 +5,13 @@ import { IconArrowNarrowRight, IconMap2, IconTable } from "@tabler/icons-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { updateOrderStatus, type Order } from "@/lib/actions/orders"
-import type { LandRoute } from "@/lib/actions/land-routes"
 import { BODY_TYPE_LABELS, formatKzt, type BodyType } from "@/lib/economics"
 import type { BackhaulSuggestion, MatchResult } from "@/lib/matching"
 import { cn } from "@/lib/utils"
 import { roadBetween } from "@/lib/route-geometry"
-import { LiveMap } from "@/components/live-map"
+import { FleetMap } from "@/components/fleet-map"
+import { SimControls, useSimulation } from "@/components/sim-controls"
+import { buildSimTrips, type TripMeta } from "@/lib/sim-trips"
 import { BackhaulCard } from "@/components/backhaul-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,12 +55,12 @@ function playAlert() {
 
 export function DispatchConsole({
   initialOrders,
-  landRoutes,
   settlements,
+  distances,
 }: {
   initialOrders: Order[]
-  landRoutes: LandRoute[]
   settlements: { id: number; name: string }[]
+  distances: { from_id: number; to_id: number; km: number; minutes: number }[]
 }) {
   const supabase = React.useMemo(() => createClient(), [])
   const names = React.useMemo(
@@ -74,6 +75,31 @@ export function DispatchConsole({
   const [matchLoading, setMatchLoading] = React.useState(false)
   const [taking, setTaking] = React.useState(false)
   const [flash, setFlash] = React.useState(false)
+  const [tab, setTab] = React.useState<"orders" | "trips">("orders")
+  const [soloTripId, setSoloTripId] = React.useState<number | null>(null)
+
+  const sim = useSimulation()
+
+  // Расписание суток строится один раз из реальных плеч и времени в пути
+  const trips: TripMeta[] = React.useMemo(() => {
+    const map = new Map(
+      distances.map((d) => [`${d.from_id}-${d.to_id}`, { km: Number(d.km), minutes: d.minutes }]),
+    )
+    return buildSimTrips(map, 34)
+  }, [distances])
+
+  const soloTrip = trips.find((t) => t.id === soloTripId) ?? null
+
+  const simStats = React.useMemo(() => {
+    let active = 0
+    let done = 0
+    for (const t of trips) {
+      const p = (sim.hour - t.departHour) / t.durationHours
+      if (p >= 0 && p <= 1) active++
+      else if (p > 1) done++
+    }
+    return { total: trips.length, active, done }
+  }, [trips, sim.hour])
 
   const selected = orders.find((o) => o.id === selectedId) ?? null
 
@@ -135,8 +161,15 @@ export function DispatchConsole({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase])
 
+  function selectTrip(id: number) {
+    setSoloTripId((cur) => (cur === id ? null : id))
+    setSelectedId(null)
+    setMatch(null)
+  }
+
   // ── Открытие заявки сразу запускает подбор ──
   async function openOrder(order: Order) {
+    setSoloTripId(null)
     if (selectedId === order.id) {
       setSelectedId(null)
       setMatch(null)
@@ -212,13 +245,12 @@ export function DispatchConsole({
       {/* ── Карта ── */}
       <div className="relative min-w-0 flex-1">
         <div className={cn("h-full", view === "map" ? "block" : "hidden")}>
-          <LiveMap
-            orders={orders}
-            landRoutes={landRoutes}
-            mode="land"
-            showPanel={false}
-            focusRoute={focusRoute}
+          <FleetMap
+            trips={trips}
+            simHour={sim.hour}
+            focusRoute={focusRoute ?? (soloTrip ? roadBetween(soloTrip.fromId, soloTrip.toId) : null)}
             backhaulRoute={backhaulRoute}
+            soloTripId={soloTripId}
           />
         </div>
 
@@ -259,6 +291,22 @@ export function DispatchConsole({
           </div>
         )}
 
+        {/* Плеер симуляции суток */}
+        {view === "map" && (
+          <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
+            <SimControls
+              hour={sim.hour}
+              playing={sim.playing}
+              speed={sim.speed}
+              onPlayPause={() => sim.setPlaying(!sim.playing)}
+              onReset={sim.reset}
+              onSpeed={sim.setSpeed}
+              onScrub={(h) => { sim.setPlaying(false); sim.setHour(h) }}
+              stats={simStats}
+            />
+          </div>
+        )}
+
         {/* Переключатель карта / таблица поверх карты */}
         <div className="absolute left-4 top-4 z-20 flex gap-1 rounded-lg border bg-background/95 p-1 shadow-sm backdrop-blur">
           <button
@@ -287,17 +335,81 @@ export function DispatchConsole({
 
       {/* ── Панель справа ── */}
       <div className="flex w-[400px] shrink-0 flex-col border-l bg-background">
-        <div className="shrink-0 border-b px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold">Входящие заявки</h2>
-            <Badge variant="secondary" className="tabular-nums">{orders.length}</Badge>
+        <div className="shrink-0 border-b p-2">
+          <div className="flex gap-1 rounded-lg bg-muted/60 p-1">
+            <button
+              onClick={() => setTab("orders")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                tab === "orders" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Заявки
+              <span className="rounded bg-primary/15 px-1.5 tabular-nums text-primary">{orders.length}</span>
+            </button>
+            <button
+              onClick={() => setTab("trips")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                tab === "trips" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Рейсы
+              <span className="rounded bg-amber-500/15 px-1.5 tabular-nums text-amber-600 dark:text-amber-400">
+                {simStats.active}
+              </span>
+            </button>
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Обновляется в реальном времени
-          </p>
         </div>
 
-        {selected ? (
+        {tab === "trips" ? (
+          <div className="flex-1 overflow-y-auto">
+            <div className="border-b px-4 py-2.5">
+              <p className="text-xs text-muted-foreground">
+                {soloTrip
+                  ? "На карте показан только выбранный рейс"
+                  : "Нажмите на рейс — на карте останется только он"}
+              </p>
+            </div>
+            <div className="divide-y">
+              {trips.map((t) => {
+                const p = (sim.hour - t.departHour) / t.durationHours
+                const state = p < 0 ? "ждёт" : p > 1 ? "доставлен" : "в пути"
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => selectTrip(t.id)}
+                    className={cn(
+                      "w-full px-4 py-2.5 text-left transition-colors hover:bg-muted/50",
+                      soloTripId === t.id && "bg-muted",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium">{t.label}</span>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                          state === "в пути" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                          state === "доставлен" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                          state === "ждёт" && "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {state}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="truncate">{t.cargo}</span>
+                      <span className="ml-auto shrink-0 tabular-nums">
+                        {Math.round(t.km)} км · выезд {String(Math.floor(t.departHour)).padStart(2, "0")}:
+                        {String(Math.round((t.departHour % 1) * 60)).padStart(2, "0")}
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ) : selected ? (
           <div className="flex-1 overflow-y-auto">
             {/* Шапка заявки */}
             <div className="border-b p-4">

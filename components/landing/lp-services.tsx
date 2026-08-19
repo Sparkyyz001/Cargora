@@ -34,14 +34,14 @@ export function LpServices() {
             transition={{ duration: 0.65, ease }}
           >
             <h2 className="lp-display text-5xl font-extrabold leading-[1.04] tracking-tight text-foreground sm:text-6xl">
-              Комплексная
+              Перевозки
               <br />
-              живая логистика
+              внутри области
               <br />
-              Каспия
+              без порожняка
             </h2>
             <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground">
-              Паромные рейсы, таможня и последняя миля — всё управляется из одной платформы. Создавайте заявку, ИИ подбирает рейс, перевозчик принимает за секунды.
+              Развоз по магазинам, стройкам и отдалённым посёлкам — из одной платформы. Создаёте заявку, система подбирает машину и сразу находит перевозчику обратный груз.
             </p>
             <Link
               href="/login"

@@ -13,7 +13,7 @@ const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] 
     title: "Платформа",
     links: [
       { label: "Сервисы", href: "/#services" },
-      { label: "Маршруты и порты", href: "/#solutions" },
+      { label: "Направления области", href: "/#solutions" },
       { label: "Как это работает", href: "/#how-it-works" },
       { label: "Частые вопросы", href: "/faq" },
       { label: "Войти в кабинет", href: "/login" },

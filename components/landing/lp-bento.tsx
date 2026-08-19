@@ -39,8 +39,8 @@ const SERVICES: Service[] = [
     height: 280,
   },
   {
-    label: "Хранение в порту",
-    desc: "Таможенные склады, паллетирование и фулфилмент в Актауском МТП.",
+    label: "Складская обработка",
+    desc: "Кросс-докинг и паллетирование на базах в Актау и Жанаозене.",
     img: "https://images.unsplash.com/photo-1759272840538-ae4b07214c71?auto=format&fit=crop&w=600&h=500&q=80",
     bg: "linear-gradient(160deg,#475569,#1e293b)",
     span: "lg:col-span-4",
@@ -48,7 +48,7 @@ const SERVICES: Service[] = [
   },
   {
     label: "Таможня и документы",
-    desc: "Брокеридж, ЭЦП и комплаенс готовы до прихода груза в порт.",
+    desc: "Электронные накладные и акты приёмки — до выезда машины на рейс.",
     img: "https://images.unsplash.com/photo-1778629794381-d3ae4a54311c?auto=format&fit=crop&w=600&h=500&q=80",
     bg: "linear-gradient(160deg,#9a3412,#451a03)",
     span: "lg:col-span-4",

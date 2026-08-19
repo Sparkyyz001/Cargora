@@ -3,40 +3,42 @@
 import { motion } from "motion/react"
 import { FlowingMenu } from "@/components/flowing-menu"
 
+// Ключевые направления области вместо списка стран: кейс про перевозки
+// ВНУТРИ региона, международные коридоры здесь неуместны.
 const countries = [
   {
     link: "#",
-    text: "Казахстан",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Baiterek_August.jpg/960px-Baiterek_August.jpg",
-    imagePosition: "50% 15%",
+    text: "Актау",
+    image: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=960&h=600&q=80",
+    imagePosition: "50% 50%",
   },
   {
     link: "#",
-    text: "Туркменистан",
+    text: "Жанаозен",
+    image: "https://images.unsplash.com/photo-1591768575198-88dac53fbd0a?auto=format&fit=crop&w=960&h=600&q=80",
+    imagePosition: "50% 50%",
+  },
+  {
+    link: "#",
+    text: "Шетпе",
     image: "https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=960&h=600&q=80",
     imagePosition: "50% 50%",
   },
   {
     link: "#",
-    text: "Азербайджан",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=960&h=600&q=80",
-    imagePosition: "50% 50%",
-  },
-  {
-    link: "#",
-    text: "Иран",
+    text: "Курык",
     image: "https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=960&h=600&q=80",
     imagePosition: "50% 50%",
   },
   {
     link: "#",
-    text: "Россия",
+    text: "Форт-Шевченко",
     image: "https://images.unsplash.com/photo-1547448415-e9f5b28e570d?auto=format&fit=crop&w=960&h=600&q=80",
     imagePosition: "50% 50%",
   },
   {
     link: "#",
-    text: "Китай (ТМТМ)",
+    text: "Бейнеу",
     image: "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=960&h=600&q=80",
     imagePosition: "50% 50%",
   },
