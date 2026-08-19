@@ -1,11 +1,12 @@
-# Обучение модели прогноза загруженности пунктов пропуска.
+# Обучение модели прогноза спроса на перевозки по направлениям области.
 #
-# Модель: GradientBoostingRegressor (scikit-learn). Одна модель на все 4 пункта —
-# пункт кодируется one-hot, что позволяет модели выучить общие погодные и
-# календарные закономерности и при этом различать профили пунктов.
+# Модель: GradientBoostingRegressor (scikit-learn). Одна модель на все
+# 10 направлений — направление кодируется one-hot, что позволяет модели
+# выучить общие погодные и календарные закономерности и при этом различать
+# профили направлений.
 #
 # Валидация: временной сплит (без утечки) — последние 3 месяца как тест.
-# Бейзлайн: средняя загрузка по (пункт, день недели, час) на трейне —
+# Бейзлайн: среднее число заявок по (направление, день недели, час) на трейне —
 # классический "hour-of-week climatology", который модель обязана обыграть.
 #
 # Экспорт: деревья выгружаются в lib/forecast-model.json, инференс выполняется
@@ -28,13 +29,32 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 ROOT = Path(__file__).parent
-CHECKPOINT_IDS = ["aktau-port", "bolashak", "tazhen", "beineu"]
+DIRECTION_IDS = [
+    "aktau-zhanaozen", "zhanaozen-aktau",
+    "aktau-shetpe", "shetpe-aktau",
+    "aktau-kuryk", "kuryk-aktau",
+    "aktau-fort-shevchenko", "aktau-beineu",
+    "aktau-zhetybai", "zhanaozen-zhetybai",
+]
 TEST_SPLIT = "2026-03-01"
+
+DIRECTION_TITLES = {
+    "aktau-zhanaozen": "Актау → Жанаозен",
+    "zhanaozen-aktau": "Жанаозен → Актау",
+    "aktau-shetpe": "Актау → Шетпе",
+    "shetpe-aktau": "Шетпе → Актау",
+    "aktau-kuryk": "Актау → Курык",
+    "kuryk-aktau": "Курык → Актау",
+    "aktau-fort-shevchenko": "Актау → Форт-Шевченко",
+    "aktau-beineu": "Актау → Бейнеу",
+    "aktau-zhetybai": "Актау → Жетыбай",
+    "zhanaozen-zhetybai": "Жанаозен → Жетыбай",
+}
 
 FEATURES = [
     "hour_sin", "hour_cos", "dow", "is_weekend",
     "doy_sin", "doy_cos", "wind_ms", "temp_c", "is_holiday",
-    *[f"cp_{c}" for c in CHECKPOINT_IDS],
+    *[f"dir_{d}" for d in DIRECTION_IDS],
 ]
 
 
@@ -50,8 +70,8 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     out["wind_ms"] = df["wind_ms"]
     out["temp_c"] = df["temp_c"]
     out["is_holiday"] = df["is_holiday"]
-    for c in CHECKPOINT_IDS:
-        out[f"cp_{c}"] = (df["checkpoint"] == c).astype(int)
+    for d in DIRECTION_IDS:
+        out[f"dir_{d}"] = (df["direction"] == d).astype(int)
     return out[FEATURES]
 
 
@@ -88,20 +108,17 @@ def plot_test_window(df_test: pd.DataFrame, pred: np.ndarray) -> None:
     cutoff = df["ts"].max() - pd.Timedelta(days=14)
     df = df[df["ts"] >= cutoff]
 
+    shown = ["aktau-zhanaozen", "aktau-shetpe", "aktau-beineu", "aktau-zhetybai"]
     fig, axes = plt.subplots(4, 1, figsize=(12, 10), sharex=True)
-    titles = {
-        "aktau-port": "Порт Актау", "bolashak": "КПП «Болашак»",
-        "tazhen": "КПП «Тажен»", "beineu": "Ж/д узел Бейнеу",
-    }
-    for ax, cp in zip(axes, CHECKPOINT_IDS):
-        d = df[df["checkpoint"] == cp]
-        ax.plot(d["ts"], d["load_pct"], lw=0.9, color="#94a3b8", label="Факт")
+    for ax, name in zip(axes, shown):
+        d = df[df["direction"] == name]
+        ax.plot(d["ts"], d["orders_per_hour"], lw=0.9, color="#94a3b8", label="Факт")
         ax.plot(d["ts"], d["pred"], lw=1.4, color="#0ea5e9", label="Прогноз модели")
-        ax.set_title(titles[cp], fontsize=10, loc="left")
-        ax.set_ylabel("Загрузка, %")
+        ax.set_title(DIRECTION_TITLES[name], fontsize=10, loc="left")
+        ax.set_ylabel("Заявок в час")
         ax.grid(alpha=0.25)
     axes[0].legend(loc="upper right", fontsize=9)
-    fig.suptitle("Прогноз загруженности пунктов пропуска — тестовое окно (14 дней)", y=0.995)
+    fig.suptitle("Прогноз спроса на перевозки по направлениям — тестовое окно (14 дней)", y=0.995)
     fig.tight_layout()
     fig.savefig(ROOT / "figures" / "forecast_vs_actual.png", dpi=150)
 
@@ -111,11 +128,10 @@ def plot_importance(model: GradientBoostingRegressor) -> None:
         "hour_sin": "час (sin)", "hour_cos": "час (cos)", "dow": "день недели",
         "is_weekend": "выходной", "doy_sin": "сезон (sin)", "doy_cos": "сезон (cos)",
         "wind_ms": "ветер, м/с", "temp_c": "температура, °C", "is_holiday": "праздник РК",
-        "cp_aktau-port": "пункт: порт Актау", "cp_bolashak": "пункт: Болашак",
-        "cp_tazhen": "пункт: Тажен", "cp_beineu": "пункт: Бейнеу",
+        **{f"dir_{d}": f"направление: {DIRECTION_TITLES[d]}" for d in DIRECTION_IDS},
     }
     imp = pd.Series(model.feature_importances_, index=FEATURES).sort_values()
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(9, 7))
     ax.barh([labels[f] for f in imp.index], imp.values, color="#0ea5e9")
     ax.set_title("Важность признаков (GradientBoosting)")
     ax.grid(axis="x", alpha=0.25)
@@ -124,9 +140,9 @@ def plot_importance(model: GradientBoostingRegressor) -> None:
 
 
 def main() -> None:
-    df = pd.read_csv(ROOT / "data" / "checkpoint_traffic.csv")
+    df = pd.read_csv(ROOT / "data" / "direction_demand.csv")
     X = build_features(df)
-    y = df["load_pct"]
+    y = df["orders_per_hour"]
 
     is_test = pd.to_datetime(df["timestamp"]) >= TEST_SPLIT
     X_train, X_test = X[~is_test], X[is_test]
@@ -137,12 +153,12 @@ def main() -> None:
     train_meta = df[~is_test].copy()
     train_meta["hour"] = pd.to_datetime(train_meta["timestamp"]).dt.hour
     train_meta["dow"] = pd.to_datetime(train_meta["timestamp"]).dt.dayofweek
-    clim = train_meta.groupby(["checkpoint", "dow", "hour"])["load_pct"].mean()
+    clim = train_meta.groupby(["direction", "dow", "hour"])["orders_per_hour"].mean()
 
     test_meta = df[is_test].copy()
     test_meta["hour"] = pd.to_datetime(test_meta["timestamp"]).dt.hour
     test_meta["dow"] = pd.to_datetime(test_meta["timestamp"]).dt.dayofweek
-    baseline_pred = test_meta.set_index(["checkpoint", "dow", "hour"]).index.map(clim)
+    baseline_pred = test_meta.set_index(["direction", "dow", "hour"]).index.map(clim)
 
     model = GradientBoostingRegressor(
         n_estimators=220,

@@ -12,12 +12,12 @@ from train import build_features
 ROOT = Path(__file__).parent
 
 CASES = [
-    # (timestamp по Актау, пункт, ветер м/с, температура °C)
-    ("2026-06-12T09:00:00", "aktau-port", 7.0, 24.0),
-    ("2026-06-12T03:00:00", "bolashak", 12.5, 18.0),
-    ("2026-12-16T10:00:00", "tazhen", 6.0, -14.0),   # праздник + мороз
-    ("2026-01-25T15:00:00", "aktau-port", 19.0, -2.0),  # шторм в порту
-    ("2026-06-14T11:00:00", "beineu", 5.0, 28.0),    # воскресенье
+    # (timestamp по Актау, направление, ветер м/с, температура °C)
+    ("2026-06-12T09:00:00", "aktau-zhanaozen", 7.0, 24.0),       # утренний пик
+    ("2026-06-12T03:00:00", "zhanaozen-aktau", 12.5, 18.0),      # ночь
+    ("2026-12-16T10:00:00", "aktau-shetpe", 6.0, -14.0),         # праздник РК
+    ("2026-01-25T15:00:00", "aktau-beineu", 19.0, -2.0),         # пыльная буря
+    ("2026-06-14T11:00:00", "aktau-zhetybai", 5.0, 42.0),        # воскресенье + жара
 ]
 
 
@@ -34,7 +34,7 @@ def main() -> None:
         return total
 
     df = pd.DataFrame(
-        [{"timestamp": ts, "checkpoint": cp, "wind_ms": w, "temp_c": t, "is_holiday": 0} for ts, cp, w, t in CASES]
+        [{"timestamp": ts, "direction": d, "wind_ms": w, "temp_c": t, "is_holiday": 0} for ts, d, w, t in CASES]
     )
     ts = pd.to_datetime(df["timestamp"])
     holidays = {(1, 1), (1, 2), (3, 8), (3, 21), (3, 22), (3, 23), (5, 1), (5, 7), (5, 9), (7, 6), (8, 30), (10, 25), (12, 16)}
@@ -42,7 +42,7 @@ def main() -> None:
     X = build_features(df)
 
     for (case, x) in zip(CASES, X.values.tolist()):
-        print(f"{case[0]} {case[1]:>11}: {predict_json(x):.4f}")
+        print(f"{case[0]} {case[1]:>22}: {predict_json(x):.4f}")
 
 
 if __name__ == "__main__":

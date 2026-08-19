@@ -1,7 +1,7 @@
-// Инференс ML-модели прогноза загруженности пунктов пропуска.
+// Инференс ML-модели прогноза спроса на перевозки по направлениям области.
 //
 // Модель (GradientBoostingRegressor) обучена в ml/train.py на датасете
-// ml/data/checkpoint_traffic.csv и экспортирована в lib/forecast-model.json.
+// ml/data/direction_demand.csv и экспортирована в lib/forecast-model.json.
 // Здесь — ручной проход по деревьям: prediction = init + lr * Σ tree(x).
 // Благодаря этому прогноз работает в обычном Next.js route handler на Vercel,
 // без отдельного Python-сервиса.
@@ -10,41 +10,63 @@
 // build_features() в ml/train.py (час/день недели — по времени Актау, UTC+5;
 // день недели — Пн=0 как в pandas).
 
-import model from "./forecast-model.json"
+import model from "./forecast-model.json" with { type: "json" }
 
 export type ForecastPoint = {
   ts: string
-  loadPct: number
-  waitHours: number
-  queue: number
+  /** Ожидаемое число заявок в час на направлении. */
+  orders: number
 }
 
-export type CheckpointForecast = {
+export type DirectionForecast = {
   id: string
   name: string
-  kind: string
-  unit: string
+  /** Плечо, км — из матрицы расстояний. */
+  km: number
   current: ForecastPoint
   hours: ForecastPoint[]
-  bestWindow: { start: string; end: string; avgLoad: number }
-  peak: { ts: string; loadPct: number }
+  /** Сколько заявок ожидается за сутки вперёд. */
+  ordersNext24h: number
+  /** Час пик: когда спрос максимальный. */
+  peak: { ts: string; orders: number }
+  /** Машин заявлено на направление — для расчёта дефицита. */
+  vehiclesDeclared: number
+  /** Дефицит машин на ближайшие сутки. */
+  deficit: number
 }
 
-// Согласовано с lib/checkpoint-load.ts — очередь и ожидание выводятся из
-// прогнозной загрузки через те же базовые соотношения
-const POINTS = [
-  { id: "aktau-port", name: "Порт Актау", kind: "морской порт", baseQueue: 6, unit: "судов", baseWait: 7, baseLoad: 82 },
-  { id: "bolashak", name: "КПП «Болашак»", kind: "граница, Туркменистан", baseQueue: 70, unit: "фур", baseWait: 6, baseLoad: 88 },
-  { id: "tazhen", name: "КПП «Тажен»", kind: "граница, Туркменистан", baseQueue: 45, unit: "фур", baseWait: 4, baseLoad: 64 },
-  { id: "beineu", name: "Ж/д узел Бейнеу", kind: "железная дорога", baseQueue: 8, unit: "составов", baseWait: 5, baseLoad: 71 },
+// Порядок обязан совпадать с DIRECTION_IDS в ml/train.py
+const DIRECTION_IDS = [
+  "aktau-zhanaozen",
+  "zhanaozen-aktau",
+  "aktau-shetpe",
+  "shetpe-aktau",
+  "aktau-kuryk",
+  "kuryk-aktau",
+  "aktau-fort-shevchenko",
+  "aktau-beineu",
+  "aktau-zhetybai",
+  "zhanaozen-zhetybai",
+] as const
+
+// Названия и плечи — фактические значения из public.distance_matrix
+const DIRECTIONS = [
+  { id: "aktau-zhanaozen", name: "Актау → Жанаозен", km: 150.7, vehiclesDeclared: 9 },
+  { id: "zhanaozen-aktau", name: "Жанаозен → Актау", km: 150.7, vehiclesDeclared: 11 },
+  { id: "aktau-shetpe", name: "Актау → Шетпе", km: 162.9, vehiclesDeclared: 5 },
+  { id: "shetpe-aktau", name: "Шетпе → Актау", km: 162.9, vehiclesDeclared: 6 },
+  { id: "aktau-kuryk", name: "Актау → Курык", km: 71.0, vehiclesDeclared: 6 },
+  { id: "kuryk-aktau", name: "Курык → Актау", km: 71.0, vehiclesDeclared: 7 },
+  { id: "aktau-fort-shevchenko", name: "Актау → Форт-Шевченко", km: 144.6, vehiclesDeclared: 4 },
+  { id: "aktau-beineu", name: "Актау → Бейнеу", km: 469.5, vehiclesDeclared: 5 },
+  { id: "aktau-zhetybai", name: "Актау → Жетыбай", km: 93.4, vehiclesDeclared: 6 },
+  { id: "zhanaozen-zhetybai", name: "Жанаозен → Жетыбай", km: 75.9, vehiclesDeclared: 4 },
 ] as const
 
 const KZ_HOLIDAYS = new Set([
   "1-1", "1-2", "3-8", "3-21", "3-22", "3-23",
   "5-1", "5-7", "5-9", "7-6", "8-30", "10-25", "12-16",
 ])
-
-const CHECKPOINT_IDS = ["aktau-port", "bolashak", "tazhen", "beineu"]
 
 type Tree = { f: number[]; t: number[]; l: number[]; r: number[]; v: number[] }
 
@@ -62,7 +84,7 @@ function dayOfYear(d: Date): number {
 }
 
 // Признаки для момента времени `utc` (часовой пояс Актау UTC+5 учитывается здесь)
-function buildFeatures(utc: Date, checkpointId: string, windMs: number, tempC: number): number[] {
+function buildFeatures(utc: Date, directionId: string, windMs: number, tempC: number): number[] {
   const aktau = new Date(utc.getTime() + 5 * 3600000)
   const hour = aktau.getUTCHours()
   const dow = (aktau.getUTCDay() + 6) % 7 // Пн=0, как pandas dayofweek
@@ -79,63 +101,61 @@ function buildFeatures(utc: Date, checkpointId: string, windMs: number, tempC: n
     windMs,
     tempC,
     isHoliday,
-    ...CHECKPOINT_IDS.map((c) => (c === checkpointId ? 1 : 0)),
+    ...DIRECTION_IDS.map((d) => (d === directionId ? 1 : 0)),
   ]
 }
 
-export function predictLoad(utc: Date, checkpointId: string, windMs: number, tempC: number): number {
-  const x = buildFeatures(utc, checkpointId, windMs, tempC)
+/** Ожидаемое число заявок в час на направлении. */
+export function predictDemand(
+  utc: Date,
+  directionId: string,
+  windMs: number,
+  tempC: number,
+): number {
+  const x = buildFeatures(utc, directionId, windMs, tempC)
   let sum = model.init
   for (const tree of model.trees as Tree[]) {
     sum += model.learning_rate * evalTree(tree, x)
   }
-  return Math.min(100, Math.max(8, Math.round(sum * 10) / 10))
+  return Math.max(0, Math.round(sum * 100) / 100)
 }
 
 export type HourlyWeather = { ts: Date; windMs: number; tempC: number }
 
-// Прогноз на горизонт `weather.length` часов для всех пунктов + рекомендация
-// лучшего 4-часового окна прохождения (минимальная средняя загрузка)
-export function forecastCheckpoints(weather: HourlyWeather[]): CheckpointForecast[] {
-  return POINTS.map((p) => {
-    const hours: ForecastPoint[] = weather.map((w) => {
-      const loadPct = predictLoad(w.ts, p.id, w.windMs, w.tempC)
-      return {
-        ts: w.ts.toISOString(),
-        loadPct,
-        waitHours: Math.max(0.5, Math.round((p.baseWait * loadPct) / p.baseLoad * 10) / 10),
-        queue: Math.max(1, Math.round((p.baseQueue * loadPct) / p.baseLoad)),
-      }
-    })
+/**
+ * Прогноз спроса на горизонт `weather.length` часов по всем направлениям.
+ *
+ * Главный вывод для перевозчика — дефицит: сколько заявок ожидается за сутки
+ * против того, сколько машин на направление заявлено. Именно это превращает
+ * модель из украшения в рабочий инструмент: «завтра на Актау → Жанаозен
+ * ожидается 14 заявок, машин заявлено 9 — там дефицит».
+ */
+export function forecastDirections(weather: HourlyWeather[]): DirectionForecast[] {
+  return DIRECTIONS.map((d) => {
+    const hours: ForecastPoint[] = weather.map((w) => ({
+      ts: w.ts.toISOString(),
+      orders: predictDemand(w.ts, d.id, w.windMs, w.tempC),
+    }))
 
-    const windowSize = 4
-    let bestStart = 0
-    let bestAvg = Infinity
     let peakIdx = 0
     for (let i = 0; i < hours.length; i++) {
-      if (hours[i].loadPct > hours[peakIdx].loadPct) peakIdx = i
-      if (i + windowSize <= hours.length) {
-        const avg = hours.slice(i, i + windowSize).reduce((s, h) => s + h.loadPct, 0) / windowSize
-        if (avg < bestAvg) {
-          bestAvg = avg
-          bestStart = i
-        }
-      }
+      if (hours[i].orders > hours[peakIdx].orders) peakIdx = i
     }
 
+    const ordersNext24h = Math.round(
+      hours.slice(0, 24).reduce((sum, h) => sum + h.orders, 0),
+    )
+
     return {
-      id: p.id,
-      name: p.name,
-      kind: p.kind,
-      unit: p.unit,
+      id: d.id,
+      name: d.name,
+      km: d.km,
       current: hours[0],
       hours,
-      bestWindow: {
-        start: hours[bestStart].ts,
-        end: hours[Math.min(bestStart + windowSize, hours.length) - 1].ts,
-        avgLoad: Math.round(bestAvg * 10) / 10,
-      },
-      peak: { ts: hours[peakIdx].ts, loadPct: hours[peakIdx].loadPct },
+      ordersNext24h,
+      peak: { ts: hours[peakIdx].ts, orders: hours[peakIdx].orders },
+      vehiclesDeclared: d.vehiclesDeclared,
+      deficit: Math.max(0, ordersNext24h - d.vehiclesDeclared),
     }
   })
 }
