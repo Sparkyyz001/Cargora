@@ -108,7 +108,7 @@ const STATS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function LpMap() {
-  // Видео 26 МБ — монтируем только когда секция близко к вьюпорту,
+  // Видео монтируем только когда секция близко к вьюпорту,
   // чтобы не тормозить первую загрузку страницы
   const videoWrapRef = useRef<HTMLDivElement>(null)
   const videoInView = useInView(videoWrapRef, { once: true, margin: "600px" })
@@ -210,10 +210,12 @@ export function LpMap() {
                   loop
                   muted
                   playsInline
-                  preload="metadata"
-                  className="w-full h-full object-cover"
+                  preload="auto"
+                  className="h-full w-full object-cover"
                 >
-                  <source src="/auth-bg.mp4" type="video/mp4" />
+                  {/* То же видео, что на первом экране: 0.6 МБ, второй раз
+                      грузить не придётся — файл уже в кэше браузера */}
+                  <source src="/hero-mangystau.mp4" type="video/mp4" />
                 </video>
               )}
             </motion.div>
