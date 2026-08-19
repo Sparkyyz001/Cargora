@@ -14,6 +14,7 @@ import { getIncidents } from "@/lib/incidents"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { NotificationMessage } from "@/components/notification-message"
 
 // Лента событий платформы: заявки, связки, инциденты — в одном месте
 // и в хронологическом порядке. Диспетчер видит, что произошло, пока
@@ -27,6 +28,15 @@ type Event = {
   kind: "created" | "taken" | "delivered" | "backhaul" | "incident" | "message"
   title: string
   detail: string
+  /** Заполняется только у сообщений — из них можно ответить. */
+  chat?: {
+    orderId: number
+    orderNumber: string
+    author: string
+    roleLabel: string
+    body: string
+    driverKey: string | null
+  }
 }
 
 const ICONS: Record<Event["kind"], Icon> = {
@@ -75,7 +85,9 @@ function ago(ms: number) {
 export default async function NotificationsPage() {
   const supabase = await createClient()
 
-  const [ordersRes, settlementsRes, messagesRes] = await Promise.all([
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const [ordersRes, settlementsRes, messagesRes, profileRes] = await Promise.all([
     supabase
       .from("orders")
       .select("id,order_number,cargo_type,status,created_at,from_settlement_id,to_settlement_id,tenge_saved,empty_km_saved,matched_backhaul_id,driver")
@@ -87,7 +99,19 @@ export default async function NotificationsPage() {
       .select("id,order_id,author,role,body,created_at")
       .order("created_at", { ascending: false })
       .limit(30),
+    user
+      ? supabase.from("profiles").select("full_name,role").eq("id", user.id).single()
+      : Promise.resolve({ data: null }),
   ])
+
+  const profile = profileRes?.data as { full_name: string | null; role: string | null } | null
+  const me = user
+    ? {
+        id: user.id,
+        name: profile?.full_name ?? user.email?.split("@")[0] ?? "Пользователь",
+        role: (profile?.role ?? "sender") as "sender" | "carrier" | "driver" | "dispatcher",
+      }
+    : null
 
   const names = new Map((settlementsRes.data ?? []).map((s) => [s.id, s.name]))
   const events: Event[] = []
@@ -137,6 +161,9 @@ export default async function NotificationsPage() {
   const orderNumbers = new Map(
     (ordersRes.data ?? []).map((o) => [o.id, o.order_number as string]),
   )
+  const orderDrivers = new Map(
+    (ordersRes.data ?? []).map((o) => [o.id, (o.driver as string | null) ?? null]),
+  )
 
   for (const m of messagesRes.data ?? []) {
     events.push({
@@ -145,6 +172,14 @@ export default async function NotificationsPage() {
       kind: "message",
       title: `${m.author}: ${m.body}`,
       detail: `${orderNumbers.get(m.order_id) ?? "заявка"} · ${ROLE_IN_CHAT[m.role as string] ?? m.role}`,
+      chat: {
+        orderId: m.order_id as number,
+        orderNumber: orderNumbers.get(m.order_id) ?? "заявка",
+        author: m.author as string,
+        roleLabel: ROLE_IN_CHAT[m.role as string] ?? (m.role as string),
+        body: m.body as string,
+        driverKey: orderDrivers.get(m.order_id) ?? null,
+      },
     })
   }
 
@@ -176,6 +211,22 @@ export default async function NotificationsPage() {
         <CardContent className="px-0">
           <div className="divide-y">
             {events.slice(0, 50).map((e) => {
+              if (e.chat) {
+                return (
+                  <NotificationMessage
+                    key={e.id}
+                    orderId={e.chat.orderId}
+                    orderNumber={e.chat.orderNumber}
+                    author={e.chat.author}
+                    roleLabel={e.chat.roleLabel}
+                    body={e.chat.body}
+                    driverKey={e.chat.driverKey}
+                    ago={ago(e.at)}
+                    me={me}
+                  />
+                )
+              }
+
               const Icon = ICONS[e.kind]
               return (
                 <div key={e.id} className="flex items-start gap-3 px-4 py-3">

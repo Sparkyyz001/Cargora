@@ -57,8 +57,10 @@ export function MessageListener({ userId }: { userId: string | null }) {
             description: `${order.order_number}: ${msg.body}`,
             duration: 8000,
             action: {
-              label: "Открыть",
-              onClick: () => router.push("/dashboard/dispatch"),
+              // В уведомлениях по сообщению открывается переписка,
+              // на бирже пришлось бы ещё искать нужную заявку
+              label: "Ответить",
+              onClick: () => router.push("/dashboard/notifications"),
             },
           })
 
