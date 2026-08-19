@@ -28,7 +28,7 @@ export function Hero() {
         preload="metadata"
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover"
-        src="/ferry-bg.mp4"
+        src="/auth-bg.mp4"
       />
 
       {/* Тёмный градиент поверх видео — текст читается чётко */}

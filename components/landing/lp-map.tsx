@@ -97,11 +97,12 @@ const maskStyle: React.CSSProperties = {
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
+// Цифры проверены 19.08.2026, источники — в README.
 const STATS = [
-  { value: 12,  suffix: "М т", decimals: 0, label: "Грузооборот порта Актау в год"          },
-  { value: 14,  suffix: " ч",  decimals: 0, label: "Быстрейший рейс Актау → Туркменбаши"    },
-  { value: 5,   suffix: "",    decimals: 0, label: "KZ · TM · AZ · IR · RU — весь Каспий"   },
-  { value: 50,  suffix: "+",   decimals: 0, label: "Компаний-перевозчиков в системе"          },
+  { value: 18795,  suffix: "",     decimals: 0, label: "Грузовых машин в области (БНС)"      },
+  { value: 165642, suffix: " км²", decimals: 0, label: "Площадь Мангистауской области"       },
+  { value: 25.8,   suffix: "%",    decimals: 1, label: "Пробега уходит порожняком"           },
+  { value: 15,     suffix: "",     decimals: 0, label: "Населённых пунктов на платформе"     },
 ]
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -133,18 +134,18 @@ export function LpMap() {
           >
             {/* Heading */}
             <h2 className="text-[clamp(1.5rem,4vw,3.5rem)] font-medium tracking-tight mb-6 leading-[1.1] w-[590px] max-w-full lp-display">
-              <Typewriter text="Паромные маршруты" delay={0} speed={0.012} />
+              <Typewriter text="Грузоперевозки внутри" delay={0} speed={0.012} />
               <br />
-              <Typewriter text="Каспийского " delay={0.25} speed={0.012} />
+              <Typewriter text="Мангистауской " delay={0.25} speed={0.012} />
               <span className="font-dm-serif italic font-normal">
-                <Typewriter text="моря" delay={0.35} speed={0.012} />
+                <Typewriter text="области" delay={0.35} speed={0.012} />
               </span>
             </h2>
 
             {/* Subtitle */}
             <p className="text-base md:text-lg text-sidebar-foreground/40 leading-relaxed font-light max-w-lg whitespace-normal mb-16">
               <Typewriter
-                text="Пять государств, шесть портов, одна платформа. Cargora соединяет грузоотправителей и перевозчиков Каспийского региона с ИИ-подбором рейса и трекингом в реальном времени."
+                text="Магазины, стройки и фермы области против простаивающих машин. Cargora сводит их напрямую и сразу предлагает перевозчику обратный груз — чтобы он не возвращался пустым."
                 delay={0.1}
                 speed={0.008}
               />
@@ -212,7 +213,7 @@ export function LpMap() {
                   preload="metadata"
                   className="w-full h-full object-cover"
                 >
-                  <source src="/caspian-bg.mp4" type="video/mp4" />
+                  <source src="/auth-bg.mp4" type="video/mp4" />
                 </video>
               )}
             </motion.div>

@@ -11,7 +11,7 @@ const CARDS = [
     bg: "linear-gradient(160deg,#c2410c,#7c2d12)",
   },
   {
-    label: "Каспийский транзит",
+    label: "Перевозки по области",
     img: "https://images.unsplash.com/photo-1769144256181-698b8f807066?auto=format&fit=crop&w=600&h=820&q=80",
     bg: "linear-gradient(160deg,#0e7490,#155e75)",
   },

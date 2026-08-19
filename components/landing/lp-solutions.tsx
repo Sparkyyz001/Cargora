@@ -13,8 +13,8 @@ const FROM = [
 ]
 
 const TO = [
-  "Туркменбаши (TM)",
-  "Баку — Алят (AZ)",
+  "Жанаозен",
+  "Шетпе",
   "Амирабад (IR)",
   "Энзели / Бандар-Энзели (IR)",
   "Махачкала (RU)",
@@ -24,7 +24,7 @@ const TO = [
 const PHOTOS = [
   {
     img: "https://images.unsplash.com/photo-1759354017689-cf8b886b9f41?auto=format&fit=crop&w=400&h=600&q=80",
-    alt: "Паром на Каспийском море",
+    alt: "Трасса в степи Мангистау",
     overlay: null,
     bg: "linear-gradient(160deg,#0e7490,#0c4a6e)",
   },
@@ -71,7 +71,7 @@ export function LpSolutions() {
             transition={{ duration: 0.6, ease, delay: 0.1 }}
             className="max-w-xs text-sm leading-relaxed text-muted-foreground"
           >
-            Один партнёр — паром, дорога и склад. Ваш груз с видимостью на каждом этапе от Актау до пункта назначения.
+            Один партнёр на всю область: от городского развоза до отдалённого посёлка. Груз виден на каждом этапе пути.
           </motion.p>
         </div>
 
@@ -117,7 +117,7 @@ export function LpSolutions() {
             className="rounded-[22px] border border-border bg-card p-6"
             style={{ boxShadow: "0 24px 48px -24px rgba(14,17,20,0.15)" }}
           >
-            <h3 className="lp-display text-lg font-bold text-foreground">Найти паромный рейс</h3>
+            <h3 className="lp-display text-lg font-bold text-foreground">Найти обратный груз</h3>
             <p className="mt-1 text-sm text-muted-foreground">Мгновенная оценка маршрута с ИИ.</p>
 
             <div className="mt-5 space-y-4">

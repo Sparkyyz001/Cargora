@@ -53,7 +53,7 @@ export function LogoCloud() {
           transition={{ duration: 0.5 }}
           className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
         >
-          Маршруты через Каспий
+          Направления по области
         </motion.p>
         <motion.h2
           initial={{ opacity: 0, y: 16 }}
@@ -62,9 +62,9 @@ export function LogoCloud() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="lp-display mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl"
         >
-          5 стран Каспийского региона —{" "}
+          15 населённых пунктов —{" "}
           <br className="hidden sm:block" />
-          один сервис
+          одна платформа
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 12 }}
@@ -73,7 +73,7 @@ export function LogoCloud() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="mt-4 text-muted-foreground text-base max-w-xl mx-auto"
         >
-          KZ · TM · AZ · IR · RU — плюс коридор ТМТМ до Китая и Европы
+          Актау · Жанаозен · Шетпе · Курык · Форт-Шевченко · Бейнеу и отдалённые посёлки
         </motion.p>
       </div>
 
