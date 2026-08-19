@@ -29,3 +29,15 @@ dist/
 
 # Utility scripts (dev only)
 final-shot.cjs
+
+# Python ML (виртуальное окружение и кэши)
+ml/.venv/
+__pycache__/
+
+# Датасеты ML (регенерируются скриптом)
+ml/data/*.csv
+
+# Рабочие документы, не часть продукта
+CLAUDE_CODE_TASK.md
+CONTEXT_FOR_CLAUDE.md
+presentation/

@@ -1,5 +1,33 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { forecastCheckpoints } from "@/lib/forecast"
+import { fetchWeather } from "@/lib/weather"
+
+// Прогноз загрузки порта Актау от собственной ML-модели (ml/train.py) —
+// подмешивается в контекст LLM, чтобы рекомендация учитывала очередь в порту
+async function getPortForecast() {
+  try {
+    const weather = await fetchWeather(48)
+    const port = forecastCheckpoints(weather.hours).find((p) => p.id === "aktau-port")
+    if (!port) return null
+    const fmt = new Intl.DateTimeFormat("ru-RU", {
+      timeZone: "Asia/Aqtau",
+      day: "numeric",
+      month: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    return {
+      loadPct: port.current.loadPct,
+      waitHours: port.current.waitHours,
+      bestWindow: `${fmt.format(new Date(port.bestWindow.start))} — ${fmt.format(new Date(port.bestWindow.end))}`,
+      bestWindowLoad: port.bestWindow.avgLoad,
+      weatherSource: weather.source,
+    }
+  } catch {
+    return null
+  }
+}
 
 const FERRIES = [
   {
@@ -143,6 +171,11 @@ export async function POST(req: NextRequest) {
   const available = matching.filter((c) => c.availTeu >= teuNeeded)
   const candidates = available.length > 0 ? available : matching
 
+  const portForecast = isLand ? null : await getPortForecast()
+  const forecastNote = portForecast
+    ? ` По прогнозу ML-модели Cargora загрузка порта Актау сейчас ${portForecast.loadPct}% (ожидание ~${portForecast.waitHours} ч); оптимальное окно прибытия груза в порт: ${portForecast.bestWindow}.`
+    : ""
+
   const groqKey = process.env.GROQ_API_KEY
 
   if (!groqKey) {
@@ -158,9 +191,10 @@ export async function POST(req: NextRequest) {
       teuNeeded,
       totalUsd,
       commission,
+      portForecast,
       reasoning: isLand
         ? `Рекомендую перевозчика ${best.id} — ${best.vessel}. Маршрут: ${best.route}, отправление ${best.departure}. Нужно ${teuNeeded} ${unitNeeded} для ${kg.toLocaleString()} кг груза. Срок доставки: ${best.transitDays} дн. Итого: $${totalUsd.toLocaleString()}. Комиссия Cargora 2% = $${commission}.`
-        : `Рекомендую рейс ${best.id} — судно «${best.vessel}». ${best.route}, отправление ${best.departure}. Свободно ${best.availTeu} TEU, требуется ${teuNeeded} TEU для ${kg.toLocaleString()} кг груза. Итого: $${totalUsd.toLocaleString()}. Комиссия Cargora 2% = $${commission}.`,
+        : `Рекомендую рейс ${best.id} — судно «${best.vessel}». ${best.route}, отправление ${best.departure}. Свободно ${best.availTeu} TEU, требуется ${teuNeeded} TEU для ${kg.toLocaleString()} кг груза. Итого: $${totalUsd.toLocaleString()}. Комиссия Cargora 2% = $${commission}.${forecastNote}`,
     })
   }
 
@@ -176,9 +210,13 @@ export async function POST(req: NextRequest) {
       )
       .join("\n")
 
+    const portContext = portForecast
+      ? `\n\nПрогноз загрузки порта Актау (собственная ML-модель Cargora, горизонт 48 ч): сейчас ${portForecast.loadPct}% (~${portForecast.waitHours} ч ожидания), оптимальное окно прибытия груза в порт: ${portForecast.bestWindow} (средняя загрузка ${portForecast.bestWindowLoad}%). Учти это в обосновании одним предложением.`
+      : ""
+
     const systemPrompt = isLand
       ? `Ты — AI-диспетчер сухопутной логистики, платформа Cargora. Отвечай ТОЛЬКО на русском, кратко и профессионально.\n\n${modeLabel}:\n${carrierList}\n\nВыбери ОДНОГО лучшего перевозчика. Учти: цену, наличие мест, тип груза, срок. Начни ответ с "Рекомендую перевозчика [ID]", затем 2-3 предложения обоснования и итоговая цена.`
-      : `Ты — AI-диспетчер паромной логистики Каспийского моря, платформа Cargora. Отвечай ТОЛЬКО на русском, кратко и профессионально.\n\n${modeLabel}:\n${carrierList}\n\nВыбери ОДИН лучший рейс. Учти: цену, наличие мест, тип груза, срок доставки. Начни ответ с "Рекомендую рейс [ID]", затем 2-3 предложения обоснования и итоговая цена.`
+      : `Ты — AI-диспетчер паромной логистики Каспийского моря, платформа Cargora. Отвечай ТОЛЬКО на русском, кратко и профессионально.\n\n${modeLabel}:\n${carrierList}${portContext}\n\nВыбери ОДИН лучший рейс. Учти: цену, наличие мест, тип груза, срок доставки. Начни ответ с "Рекомендую рейс [ID]", затем 2-3 предложения обоснования и итоговая цена.`
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -214,6 +252,7 @@ export async function POST(req: NextRequest) {
       teuNeeded,
       totalUsd,
       commission,
+      portForecast,
       reasoning:
         text ||
         (isLand
@@ -231,9 +270,10 @@ export async function POST(req: NextRequest) {
       teuNeeded,
       totalUsd,
       commission,
+      portForecast,
       reasoning: isLand
         ? `Рекомендую ${best.id} — ${best.vessel}. Маршрут ${best.route}, отправление ${best.departure}. Нужно ${teuNeeded} грузовик(ов). Стоимость: $${totalUsd.toLocaleString()}, комиссия Cargora = $${commission}.`
-        : `Рекомендую рейс ${best.id} — судно «${best.vessel}». ${best.route}, отправление ${best.departure}. Нужно ${teuNeeded} TEU. Стоимость: $${totalUsd.toLocaleString()}, комиссия Cargora = $${commission}.`,
+        : `Рекомендую рейс ${best.id} — судно «${best.vessel}». ${best.route}, отправление ${best.departure}. Нужно ${teuNeeded} TEU. Стоимость: $${totalUsd.toLocaleString()}, комиссия Cargora = $${commission}.${forecastNote}`,
     })
   }
 }
