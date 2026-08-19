@@ -5,7 +5,6 @@ import {
   IconCirclePlusFilled,
   IconCalendar,
   IconSparkles,
-  IconShip,
   IconTruck,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
@@ -34,27 +33,51 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { createClient } from "@/lib/supabase/client"
+import { BODY_TYPE_LABELS, formatKzt, type BodyType } from "@/lib/economics"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
 
 type RouteRecommendation = {
   ok: boolean
-  transport_type?: "ferry" | "land"
-  ferry: {
-    id: string
-    vessel: string
-    route: string
-    departure: string
-    availTeu: number
-    pricePerTeu: number
-    transitDays: number
-  }
-  teuNeeded: number
-  totalUsd: number
-  commission: number
+  distanceKm: number
+  minutes: number
+  carrier: {
+    vehicleId: number
+    carrierName: string
+    plate: string
+    bodyType: BodyType
+    capacityKg: number
+    deadheadToPickupKm: number
+    suggestedPriceKzt: number
+  } | null
+  backhaul: {
+    orderNumber: string
+    cargoType: string
+    fromName: string
+    toName: string
+    saving: { emptyKmWithout: number; emptyKmWith: number; kztSaved: number }
+  } | null
+  priceKzt: number
+  commissionKzt: number
+  fromName: string
+  toName: string
   reasoning: string
+  llm: boolean
 }
 
-type TransportType = "ferry" | "land"
+type SettlementOption = { id: number; name: string }
+
+/** Что реально возят внутри области. */
+const CARGO_TYPES = [
+  "Продукты питания",
+  "Стройматериалы",
+  "Питьевая вода",
+  "Товары народного потребления",
+  "Оборудование для промыслов",
+  "Мебель и бытовая техника",
+  "Комбикорм",
+  "Инертные материалы",
+]
 
 function formatDeliveryDate(date: DateValue | null) {
   if (!date) return "Выбрать дату"
@@ -68,8 +91,11 @@ function formatDeliveryDate(date: DateValue | null) {
 export function NewOrderDialog({ label = "Новый заказ" }: { label?: string }) {
   const [open, setOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
-  const [transportType, setTransportType] = React.useState<TransportType>("ferry")
   const [cargoType, setCargoType] = React.useState("")
+  const [settlements, setSettlements] = React.useState<SettlementOption[]>([])
+  const [fromId, setFromId] = React.useState("")
+  const [toId, setToId] = React.useState("")
+  const [bodyType, setBodyType] = React.useState<BodyType>("tent")
   const [driver, setDriver] = React.useState("")
   const [deliveryDate, setDeliveryDate] = React.useState<DateValue | null>(null)
   const [showCalendar, setShowCalendar] = React.useState(false)
@@ -80,7 +106,20 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
   const weightRef = React.useRef<HTMLInputElement>(null)
   const volumeRef = React.useRef<HTMLInputElement>(null)
 
-  const isFerry = transportType === "ferry"
+  // Справочник НП тянем один раз при первом открытии диалога
+  React.useEffect(() => {
+    if (!open || settlements.length > 0) return
+    const supabase = createClient()
+    supabase
+      .from("settlements")
+      .select("id,name")
+      .order("population", { ascending: false, nullsFirst: false })
+      .then(({ data }) => {
+        if (data) setSettlements(data as SettlementOption[])
+      })
+  }, [open, settlements.length])
+
+  const routeReady = Boolean(fromId && toId && fromId !== toId)
 
   async function handleAIRoute() {
     setAiLoading(true)
@@ -93,15 +132,21 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
           cargo_type: cargoType,
           weight: weightRef.current?.value,
           volume: volumeRef.current?.value,
-          recipient_address: recipientAddress,
-          delivery_date: deliveryDate?.toString(),
-          transport_type: transportType,
+          fromSettlementId: Number(fromId),
+          toSettlementId: Number(toId),
+          bodyType,
+          pickupFrom: deliveryDate?.toDate(getLocalTimeZone()).toISOString(),
         }),
       })
       const data: RouteRecommendation = await res.json()
+      if (!data.ok) {
+        toast.error("Подбор не удался — проверьте маршрут и вес")
+        return
+      }
       setAiResult(data)
-      const prefix = data.transport_type === "land" ? "[LAND] " : ""
-      setDriver(`${prefix}${data.ferry.id} · ${data.ferry.route} · ${data.ferry.departure}`)
+      if (data.carrier) {
+        setDriver(`${data.carrier.plate} · ${data.fromName} → ${data.toName} · ${data.carrier.carrierName}`)
+      }
     } catch {
       toast.error("Ошибка ИИ-анализа — попробуйте ещё раз")
     } finally {
@@ -109,16 +154,11 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
     }
   }
 
-  function handleTransportSwitch(type: TransportType) {
-    setTransportType(type)
-    setAiResult(null)
-    setDriver("")
-    setRecipientAddress("")
-  }
-
   function resetForm() {
-    setTransportType("ferry")
     setCargoType("")
+    setFromId("")
+    setToId("")
+    setBodyType("tent")
     setDriver("")
     setDeliveryDate(null)
     setShowCalendar(false)
@@ -136,6 +176,20 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
     if (driver) formData.set("driver", driver)
     if (deliveryDate) formData.set("delivery_date", deliveryDate.toString())
 
+    // Поля перевозки по области — без них заявка не попадёт в матчинг
+    formData.set("from_settlement_id", fromId)
+    formData.set("to_settlement_id", toId)
+    formData.set("body_type", bodyType)
+    if (aiResult?.distanceKm) formData.set("distance_km", String(aiResult.distanceKm))
+    if (deliveryDate) {
+      const pickup = deliveryDate.toDate(getLocalTimeZone())
+      pickup.setHours(8, 0, 0, 0)
+      formData.set("pickup_from", pickup.toISOString())
+      const until = new Date(pickup)
+      until.setHours(18, 0, 0, 0)
+      formData.set("pickup_to", until.toISOString())
+    }
+
     const result = await createOrder(formData)
     setLoading(false)
 
@@ -145,12 +199,10 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
     }
 
     const num = "order_number" in result ? `Заказ ${result.order_number}` : "Заказ"
-    toast.success(isFerry ? `${num} создан — паромный перевозчик уведомлён` : `${num} создан — автоперевозчик уведомлён`)
+    toast.success(`${num} создан — перевозчики области уже видят его на бирже`)
     setOpen(false)
     resetForm()
   }
-
-  const isLandResult = aiResult?.transport_type === "land"
 
   return (
     <Dialog
@@ -178,35 +230,79 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 
-          {/* Transport type toggle */}
-          <div className="flex overflow-hidden rounded-xl border border-border">
-            <button
-              type="button"
-              onClick={() => handleTransportSwitch("ferry")}
-              className={
-                "flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-colors " +
-                (isFerry
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted/50")
-              }
-            >
-              <IconShip className="size-4" />
-              Паромный
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTransportSwitch("land")}
-              className={
-                "flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-colors " +
-                (!isFerry
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted/50")
-              }
-            >
-              <IconTruck className="size-4" />
-              Сухопутный
-            </button>
+          {/* Маршрут по области */}
+          <div className="flex flex-col gap-4">
+            <h4 className="text-sm font-medium text-muted-foreground">Маршрут</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label>Откуда</Label>
+                <Select
+                  value={fromId}
+                  onValueChange={(v) => {
+                    setFromId(v)
+                    setAiResult(null)
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Населённый пункт" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {settlements.map((st) => (
+                      <SelectItem key={st.id} value={String(st.id)}>
+                        {st.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Куда</Label>
+                <Select
+                  value={toId}
+                  onValueChange={(v) => {
+                    setToId(v)
+                    setAiResult(null)
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Населённый пункт" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {settlements
+                      .filter((st) => String(st.id) !== fromId)
+                      .map((st) => (
+                        <SelectItem key={st.id} value={String(st.id)}>
+                          {st.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Тип кузова</Label>
+              <Select
+                value={bodyType}
+                onValueChange={(v) => {
+                  setBodyType(v as BodyType)
+                  setAiResult(null)
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(BODY_TYPE_LABELS) as BodyType[]).map((bt) => (
+                    <SelectItem key={bt} value={bt}>
+                      {BODY_TYPE_LABELS[bt]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          <Separator />
 
           {/* Груз */}
           <div className="flex flex-col gap-4">
@@ -217,13 +313,11 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
                   <SelectValue placeholder="Выбрать тип" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Нефтепродукты">Нефтепродукты</SelectItem>
-                  <SelectItem value="Контейнер ТМТМ">Контейнер ТМТМ</SelectItem>
-                  <SelectItem value="Металлопрокат">Металлопрокат</SelectItem>
-                  <SelectItem value="Зерновые грузы">Зерновые грузы</SelectItem>
-                  <SelectItem value="Строительные материалы">Строительные материалы</SelectItem>
-                  <SelectItem value="Химические грузы">Химические грузы</SelectItem>
-                  <SelectItem value="Автомобили">Автомобили</SelectItem>
+                  {CARGO_TYPES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -234,13 +328,13 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
                   id="weight"
                   name="weight"
                   type="number"
-                  placeholder="18 000"
+                  placeholder="3 000"
                   ref={weightRef}
                 />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="volume">Объём (м³)</Label>
-                <Input id="volume" name="volume" type="number" placeholder="45" ref={volumeRef} />
+                <Input id="volume" name="volume" type="number" placeholder="15" ref={volumeRef} />
               </div>
             </div>
             <div className="flex flex-col gap-2">
@@ -281,7 +375,7 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
                 <Input
                   id="sender_name"
                   name="sender_name"
-                  placeholder="ТОО КазМунайТранс"
+                  placeholder="ТОО «Каспий Фуд»"
                   required
                 />
               </div>
@@ -297,13 +391,11 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="sender_address">
-                {isFerry ? "Порт / адрес" : "Адрес загрузки"}
-              </Label>
+              <Label htmlFor="sender_address">Адрес загрузки</Label>
               <Input
                 id="sender_address"
                 name="sender_address"
-                placeholder={isFerry ? "Актау, Морпорт, прич. 3" : "Актау, пр. Нурмагамбетова 24"}
+                placeholder="Актау, промзона, база №4"
                 required
               />
             </div>
@@ -320,7 +412,7 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
                 <Input
                   id="recipient_name"
                   name="recipient_name"
-                  placeholder={isFerry ? "Туркменбаши НПЗ" : "ТОО АлматыТрейд"}
+                  placeholder="Магазин «Береке»"
                   required
                 />
               </div>
@@ -330,47 +422,36 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
                   id="recipient_phone"
                   name="recipient_phone"
                   type="tel"
-                  placeholder={isFerry ? "+993 12 34 56 78" : "+7 727 200 00 00"}
+                  placeholder="+7 729 350 11 22"
                   required
                 />
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="recipient_address">
-                {isFerry ? "Порт назначения" : "Адрес доставки"}
-              </Label>
+              <Label htmlFor="recipient_address">Адрес доставки</Label>
               <Input
                 id="recipient_address"
                 name="recipient_address"
-                placeholder={
-                  isFerry
-                    ? "Туркменбаши, Туркменистан"
-                    : "Алматы, Астана, Шымкент, Атырау..."
-                }
+                placeholder="Жанаозен, мкр Шанырак, 12"
                 required
                 value={recipientAddress}
-                onChange={(e) => {
-                  setRecipientAddress(e.target.value)
-                  setAiResult(null)
-                }}
+                onChange={(e) => setRecipientAddress(e.target.value)}
               />
             </div>
           </div>
 
           <Separator />
 
-          {/* ИИ-маршрут */}
+          {/* Подбор машины и обратной загрузки */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-              <h4 className="text-sm font-medium text-muted-foreground">
-                {isFerry ? "Паромный рейс" : "Маршрут перевозки"}
-              </h4>
+              <h4 className="text-sm font-medium text-muted-foreground">Подбор перевозчика</h4>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleAIRoute}
-                disabled={aiLoading || !recipientAddress.trim()}
+                disabled={aiLoading || !routeReady}
                 className="gap-1.5"
               >
                 <IconSparkles className="size-4" />
@@ -379,87 +460,74 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
             </div>
 
             {aiResult && (
-              <div
-                className={
-                  "flex flex-col gap-2 rounded-lg border p-4 " +
-                  (isLandResult
-                    ? "border-amber-500/30 bg-amber-500/5"
-                    : "border-sky-500/30 bg-sky-500/5")
-                }
-              >
+              <div className="flex flex-col gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={
-                      "flex size-10 shrink-0 items-center justify-center rounded-full text-xl " +
-                      (isLandResult ? "bg-amber-500/15" : "bg-sky-500/15")
-                    }
-                  >
-                    {isLandResult ? "🚛" : "🚢"}
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-xl">
+                    🚛
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p
-                      className={
-                        "text-sm font-semibold " +
-                        (isLandResult
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-sky-600 dark:text-sky-400")
-                      }
-                    >
-                      {aiResult.ferry.id} · {aiResult.ferry.vessel}
+                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                      {aiResult.carrier
+                        ? `${aiResult.carrier.plate} · ${aiResult.carrier.carrierName}`
+                        : "Свободной машины сейчас нет"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {aiResult.ferry.route} · {isLandResult ? "Выезд" : "Отплытие"}{" "}
-                      {aiResult.ferry.departure} · {aiResult.ferry.transitDays}{" "}
-                      {aiResult.ferry.transitDays === 1 ? "день" : "дня"} в пути
+                      {aiResult.fromName} → {aiResult.toName} · {Math.round(aiResult.distanceKm)} км
+                      {aiResult.carrier
+                        ? ` · подача ${Math.round(aiResult.carrier.deadheadToPickupKm)} км`
+                        : ""}
                     </p>
                   </div>
-                  <Badge
-                    className={
-                      "shrink-0 " +
-                      (isLandResult
-                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                        : "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30")
-                    }
-                  >
-                    ИИ ✨
+                  <Badge className="shrink-0 border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                    {aiResult.llm ? "ИИ ✨" : "Расчёт"}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {aiResult.reasoning}
-                </p>
-                <div className="flex flex-wrap gap-4 text-xs pt-1">
-                  <span>
-                    {isLandResult ? "Грузовиков" : "Мест"}:{" "}
-                    <strong>
-                      {aiResult.teuNeeded} / {aiResult.ferry.availTeu}{" "}
-                      {isLandResult ? "шт" : "TEU"}
-                    </strong>
-                  </span>
-                  <span>
-                    Стоимость: <strong>${aiResult.totalUsd.toLocaleString()}</strong>
-                  </span>
-                  <span className="text-green-600 dark:text-green-400">
-                    Комиссия: <strong>${aiResult.commission}</strong>
-                  </span>
-                </div>
+
+                <p className="text-xs leading-relaxed text-muted-foreground">{aiResult.reasoning}</p>
+
+                {aiResult.carrier && (
+                  <div className="flex flex-wrap gap-4 pt-1 text-xs">
+                    <span>
+                      Кузов:{" "}
+                      <strong>
+                        {BODY_TYPE_LABELS[aiResult.carrier.bodyType]}{" "}
+                        {(aiResult.carrier.capacityKg / 1000).toFixed(0)} т
+                      </strong>
+                    </span>
+                    <span>
+                      Стоимость: <strong>{formatKzt(aiResult.priceKzt)}</strong>
+                    </span>
+                    <span className="text-green-600 dark:text-green-400">
+                      Комиссия: <strong>{formatKzt(aiResult.commissionKzt)}</strong>
+                    </span>
+                  </div>
+                )}
+
+                {aiResult.backhaul && (
+                  <div className="mt-1 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3">
+                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      Есть обратная загрузка: {aiResult.backhaul.cargoType},{" "}
+                      {aiResult.backhaul.fromName} → {aiResult.backhaul.toName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Порожний пробег {Math.round(aiResult.backhaul.saving.emptyKmWithout)} км →{" "}
+                      {Math.round(aiResult.backhaul.saving.emptyKmWith)} км · экономия{" "}
+                      <strong className="text-emerald-600 dark:text-emerald-400">
+                        {formatKzt(aiResult.backhaul.saving.kztSaved)}
+                      </strong>
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {!aiResult && (
               <div className="flex items-center gap-2 rounded-md border border-dashed p-3">
-                {isFerry ? (
-                  <IconShip className="size-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <IconTruck className="size-4 shrink-0 text-muted-foreground" />
-                )}
+                <IconTruck className="size-4 shrink-0 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">
-                  {recipientAddress.trim()
-                    ? isFerry
-                      ? "Нажмите «Подобрать ИИ» — система выберет оптимальный паром"
-                      : "Нажмите «Подобрать ИИ» — система выберет перевозчика"
-                    : isFerry
-                      ? "Укажите порт назначения, чтобы ИИ подобрал рейс"
-                      : "Укажите адрес доставки, чтобы ИИ подобрал маршрут"}
+                  {routeReady
+                    ? "Нажмите «Подобрать ИИ» — система найдёт машину и обратный груз"
+                    : "Выберите откуда и куда, чтобы подобрать перевозчика"}
                 </p>
               </div>
             )}
@@ -469,8 +537,8 @@ export function NewOrderDialog({ label = "Новый заказ" }: { label?: st
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Отмена
             </Button>
-            <Button type="submit" disabled={loading || !cargoType}>
-              {loading ? "Создание..." : "Создать заказ"}
+            <Button type="submit" disabled={loading || !cargoType || !routeReady}>
+              {loading ? "Создание..." : "Создать заявку"}
             </Button>
           </DialogFooter>
         </form>
