@@ -11,7 +11,7 @@
 // который Windows schannel отвергает (SEC_E_ILLEGAL_MESSAGE). По http
 // тот же эндпоинт отвечает нормально.
 
-import { readFileSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import { SETTLEMENTS } from "../lib/mangystau.ts"
 
 const OSRM_BASE = "http://router.project-osrm.org/route/v1/driving"
@@ -23,11 +23,16 @@ const RATE_LIMIT_MS = 1100
  *  approximate = true, чтобы приблизительные значения были видны. */
 const DETOUR_FACTOR = 1.35
 
+/** Промежуточный артефакт: собранная матрица до записи в БД. */
+const CACHE_FILE = "scripts/distance-matrix.json"
+
 type Row = { id: number; name: string; lat: number; lng: number }
 
 function loadEnv(): Record<string, string> {
   const out: Record<string, string> = {}
-  for (const line of readFileSync(".env.local", "utf8").split("\n")) {
+  // split по /\r?\n/, а не по "\n": файл с CRLF оставил бы \r в конце строки,
+  // а в JS точка не матчит \r — регулярка ниже не сработала бы ни разу
+  for (const line of readFileSync(".env.local", "utf8").split(/\r?\n/)) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
     if (m) out[m[1]] = m[2].trim()
   }
@@ -39,18 +44,19 @@ const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL
 // Секретный ключ обходит RLS — справочники остаются закрытыми на запись
 // для всех остальных. Ключ живёт только в .env.local (он в .gitignore)
 // и читается только этим скриптом, который в рантайм приложения не попадает.
-const SUPABASE_KEY = env.SUPABASE_SECRET_KEY
+const ANON_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const SECRET_KEY = env.SUPABASE_SECRET_KEY
 if (!SUPABASE_URL) throw new Error("Нет NEXT_PUBLIC_SUPABASE_URL в .env.local")
-if (!SUPABASE_KEY) throw new Error("Нет SUPABASE_SECRET_KEY в .env.local — без него RLS не пустит запись")
+if (!ANON_KEY) throw new Error("Нет NEXT_PUBLIC_SUPABASE_ANON_KEY в .env.local")
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-async function rest(path: string, init: RequestInit = {}) {
+async function rest(path: string, init: RequestInit = {}, key: string = ANON_KEY) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
     headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },
@@ -102,14 +108,8 @@ async function osrmLeg(a: Row, b: Row): Promise<Leg> {
 }
 
 async function main() {
-  // 1. Синхронизируем справочник НП из lib/mangystau.ts
-  console.log(`Заливаю ${SETTLEMENTS.length} НП в settlements…`)
-  await rest("settlements?on_conflict=name", {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates" },
-    body: JSON.stringify(SETTLEMENTS),
-  })
-
+  // 1. Справочник НП уже залит миграцией — просто читаем id.
+  //    Чтение открыто политикой "settlements: all read", ключ не нужен.
   const rows: Row[] = await (await rest("settlements?select=id,name,lat,lng&order=id")).json()
   rows.forEach((r) => {
     r.lat = Number(r.lat)
@@ -147,17 +147,33 @@ async function main() {
     }
   }
 
-  // 3. Пишем в БД пачками — один запрос на 10 строк
-  console.log(`\nЗаписываю ${batch.length} строк в distance_matrix…`)
-  for (let i = 0; i < batch.length; i += 10) {
-    await rest("distance_matrix?on_conflict=from_id,to_id", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates" },
-      body: JSON.stringify(batch.slice(i, i + 10)),
-    })
+  // 3. Сначала кладём результат на диск. Сбор данных из OSRM занимает
+  //    две минуты и ограничен рейт-лимитом — потерять его из-за отвалившейся
+  //    записи в БД нельзя. Файл в .gitignore, это промежуточный артефакт.
+  writeFileSync(CACHE_FILE, JSON.stringify(batch), "utf8")
+  console.log(`\nСохранено в ${CACHE_FILE} (${(JSON.stringify(batch).length / 1024).toFixed(0)} КБ)`)
+
+  // 4. Пишем в БД пачками — один запрос на 10 строк.
+  //    Падение записи не роняет скрипт: данные уже лежат на диске,
+  //    залить их можно потом через scripts/push-distances.ts.
+  try {
+    if (!SECRET_KEY) throw new Error("нет SUPABASE_SECRET_KEY от этого проекта")
+    console.log(`Записываю ${batch.length} строк в distance_matrix…`)
+    for (let i = 0; i < batch.length; i += 10) {
+      await rest("distance_matrix?on_conflict=from_id,to_id", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify(batch.slice(i, i + 10)),
+      }, SECRET_KEY)
+    }
+    console.log("Записано.")
+  } catch (err) {
+    console.error(`
+✗ Запись в БД не прошла: ${(err as Error).message}`)
+    console.error(`  Данные сохранены в ${CACHE_FILE}. Залей их: node scripts/push-distances.ts`)
   }
 
-  // 4. Сверка с эталонами из ТЗ (раздел 3.2)
+  // 5. Сверка с эталонами из ТЗ (раздел 3.2)
   const byName = new Map(rows.map((r) => [r.name, r.id]))
   const checks: [string, string, number][] = [
     ["Актау", "Жанаозен", 149.5],

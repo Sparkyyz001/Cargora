@@ -41,3 +41,7 @@ ml/data/*.csv
 CLAUDE_CODE_TASK.md
 CONTEXT_FOR_CLAUDE.md
 presentation/
+
+# Промежуточный артефакт скрипта матрицы расстояний
+scripts/distance-matrix.json
+scripts/dm-values.sql
