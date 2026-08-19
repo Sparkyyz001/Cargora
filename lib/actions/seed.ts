@@ -136,8 +136,12 @@ export async function ensureUserData() {
       recipient_address: "Сенек, ферма",
     },
 
-    // ── ГЛАВНАЯ ПАРА ПОД МАТЧИНГ ──
-    // Прямой рейс: продукты в рефрижераторе Актау → Жанаозен, забрать завтра к 08:00
+    // ── ПАРЫ ПОД МАТЧИНГ ──
+    // Заявки заведены встречными парами по одному плечу: туда груз,
+    // обратно груз. Это не подгонка под демо, а то, как перевозки
+    // и должны выглядеть — машина не возвращается пустой.
+
+    // Пара 1: продукты в Жанаозен, рыба обратно. Подача 0 км.
     {
       order_number: "МАН-00144", cargo_type: "Продукты питания",
       status: "Ожидает отправки" as const, weight: 3000, volume: 15, body_type: "refrigerator",
@@ -149,8 +153,6 @@ export async function ensureUserData() {
       recipient_name: "Супермаркет «Аружан»", recipient_phone: "+7 729 351 88 99",
       recipient_address: "Жанаозен, мкр Самал",
     },
-    // Встречный груз: Жанаозен → Актау, готов к 14:00 того же дня.
-    // Подача 0 км, возврат в исходную точку — связка идеальная.
     {
       order_number: "МАН-00145", cargo_type: "Рыбная продукция",
       status: "Ожидает отправки" as const, weight: 2600, volume: 12, body_type: "refrigerator",
@@ -163,31 +165,44 @@ export async function ensureUserData() {
       recipient_address: "Актау, мкр 12, рынок",
     },
 
-    // ── Остальная очередь: даёт альтернативы в подборе ──
+    // Пара 2: стройматериалы в Шетпе, щебень с карьера обратно
     {
       order_number: "МАН-00146", cargo_type: "Стройматериалы",
       status: "Ожидает отправки" as const, weight: 14000, volume: 18, body_type: "flatbed",
-      from_settlement_id: id("Актау"), to_settlement_id: id("Жанаозен"),
-      distance_km: 150.68, driver: null, delivery_date: day(2),
+      from_settlement_id: id("Актау"), to_settlement_id: id("Шетпе"),
+      distance_km: 162.85, driver: null, delivery_date: day(2),
       pickup_from: at(2, 7), pickup_to: at(2, 12),
       sender_name: "ТОО «Актауқұрылыс»", sender_phone: "+7 729 255 00 11",
       sender_address: "Актау, мкр 31, склад",
-      recipient_name: "ТОО «МангКурылыс»", recipient_phone: "+7 729 244 22 33",
-      recipient_address: "Жанаозен, стройплощадка мкр 6",
+      recipient_name: "ИП Сарсенов", recipient_phone: "+7 729 331 44 55",
+      recipient_address: "Шетпе, ул. Абая",
     },
     {
-      order_number: "МАН-00147", cargo_type: "Мебель и бытовая техника",
-      status: "Ожидает отправки" as const, weight: 2800, volume: 26, body_type: "tent",
-      from_settlement_id: id("Жанаозен"), to_settlement_id: id("Актау"),
-      distance_km: 150.68, driver: null, delivery_date: day(1),
-      pickup_from: at(1, 16), pickup_to: at(1, 20),
-      sender_name: "Салон «Уют»", sender_phone: "+7 729 353 10 10",
-      sender_address: "Жанаозен, ТЦ «Орда»",
-      recipient_name: "Склад «Мега Актау»", recipient_phone: "+7 729 249 20 30",
-      recipient_address: "Актау, мкр 28",
+      order_number: "МАН-00147", cargo_type: "Инертные материалы",
+      status: "Ожидает отправки" as const, weight: 19000, volume: 11, body_type: "flatbed",
+      from_settlement_id: id("Шетпе"), to_settlement_id: id("Актау"),
+      distance_km: 162.85, driver: null, delivery_date: day(2),
+      pickup_from: at(2, 14), pickup_to: at(2, 19),
+      sender_name: "Карьер «Шетпе»", sender_phone: "+7 729 332 11 00",
+      sender_address: "Шетпе, карьер",
+      recipient_name: "ТОО «Актау Бетон»", recipient_phone: "+7 729 258 90 00",
+      recipient_address: "Актау, бетонный узел",
+    },
+
+    // Пара 3: товары в Курык, рыба из цеха обратно
+    {
+      order_number: "МАН-00148", cargo_type: "Товары народного потребления",
+      status: "Ожидает отправки" as const, weight: 3400, volume: 19, body_type: "tent",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Курык"),
+      distance_km: 71.02, driver: null, delivery_date: day(1),
+      pickup_from: at(1, 9), pickup_to: at(1, 12),
+      sender_name: "ТОО «Мангистау Трейд»", sender_phone: "+7 729 260 30 40",
+      sender_address: "Актау, оптовая база",
+      recipient_name: "Магазин «Құрық»", recipient_phone: "+7 729 336 22 10",
+      recipient_address: "Курык, ул. Абая",
     },
     {
-      order_number: "МАН-00148", cargo_type: "Продукты питания",
+      order_number: "МАН-00149", cargo_type: "Рыбная продукция",
       status: "Ожидает отправки" as const, weight: 1800, volume: 9, body_type: "refrigerator",
       from_settlement_id: id("Курык"), to_settlement_id: id("Актау"),
       distance_km: 71.02, driver: null, delivery_date: day(1),
@@ -197,19 +212,34 @@ export async function ensureUserData() {
       recipient_name: "Кафе «Достар»", recipient_phone: "+7 729 247 33 22",
       recipient_address: "Актау, мкр 15",
     },
-    {
-      order_number: "МАН-00149", cargo_type: "Инертные материалы",
-      status: "Ожидает отправки" as const, weight: 19000, volume: 11, body_type: "dump",
-      from_settlement_id: id("Шетпе"), to_settlement_id: id("Актау"),
-      distance_km: 162.85, driver: null, delivery_date: day(2),
-      pickup_from: at(2, 8), pickup_to: at(2, 14),
-      sender_name: "Карьер «Шетпе»", sender_phone: "+7 729 332 11 00",
-      sender_address: "Шетпе, карьер",
-      recipient_name: "ТОО «Актау Бетон»", recipient_phone: "+7 729 258 90 00",
-      recipient_address: "Актау, бетонный узел",
-    },
+
+    // Пара 4: вода в Жетыбай, оборудование с промысла обратно
     {
       order_number: "МАН-00150", cargo_type: "Питьевая вода",
+      status: "Ожидает отправки" as const, weight: 5200, volume: 16, body_type: "tent",
+      from_settlement_id: id("Актау"), to_settlement_id: id("Жетыбай"),
+      distance_km: 93.36, driver: null, delivery_date: day(2),
+      pickup_from: at(2, 8), pickup_to: at(2, 11),
+      sender_name: "ТОО «Ак Су»", sender_phone: "+7 729 240 77 88",
+      sender_address: "Актау, мкр 27",
+      recipient_name: "Вахтовый посёлок Жетыбай", recipient_phone: "+7 729 321 00 40",
+      recipient_address: "Жетыбай, участок 3",
+    },
+    {
+      order_number: "МАН-00151", cargo_type: "Оборудование для промыслов",
+      status: "Ожидает отправки" as const, weight: 11500, volume: 14, body_type: "flatbed",
+      from_settlement_id: id("Жетыбай"), to_settlement_id: id("Актау"),
+      distance_km: 93.36, driver: null, delivery_date: day(2),
+      pickup_from: at(2, 13), pickup_to: at(2, 18),
+      sender_name: "ТОО «Озенмунайсервис»", sender_phone: "+7 729 354 60 70",
+      sender_address: "Жетыбай, промбаза",
+      recipient_name: "Ремонтный завод", recipient_phone: "+7 729 259 11 30",
+      recipient_address: "Актау, промзона",
+    },
+
+    // ── Заявки без пары: честный резерв, машина вернётся порожней ──
+    {
+      order_number: "МАН-00152", cargo_type: "Питьевая вода",
       status: "Ожидает отправки" as const, weight: 5200, volume: 16, body_type: "tent",
       from_settlement_id: id("Актау"), to_settlement_id: id("Уштаган"),
       distance_km: 206.84, driver: null, delivery_date: day(3),
@@ -220,7 +250,7 @@ export async function ensureUserData() {
       recipient_address: "Уштаган, центр",
     },
     {
-      order_number: "МАН-00151", cargo_type: "Товары народного потребления",
+      order_number: "МАН-00153", cargo_type: "Товары народного потребления",
       status: "Ожидает отправки" as const, weight: 3400, volume: 19, body_type: "tent",
       from_settlement_id: id("Актау"), to_settlement_id: id("Форт-Шевченко"),
       distance_km: 144.59, driver: null, delivery_date: day(2),
@@ -229,17 +259,6 @@ export async function ensureUserData() {
       sender_address: "Актау, оптовая база",
       recipient_name: "Магазин «Каспий»", recipient_phone: "+7 729 337 22 33",
       recipient_address: "Форт-Шевченко, ул. Кунанбаева",
-    },
-    {
-      order_number: "МАН-00152", cargo_type: "Оборудование для промыслов",
-      status: "Ожидает отправки" as const, weight: 11500, volume: 14, body_type: "manipulator",
-      from_settlement_id: id("Жанаозен"), to_settlement_id: id("Жетыбай"),
-      distance_km: 75.86, driver: null, delivery_date: day(2),
-      pickup_from: at(2, 10), pickup_to: at(2, 15),
-      sender_name: "ТОО «Озенмунайсервис»", sender_phone: "+7 729 354 60 70",
-      sender_address: "Жанаозен, промбаза",
-      recipient_name: "Промысел Жетыбай", recipient_phone: "+7 729 321 00 40",
-      recipient_address: "Жетыбай, участок 3",
     },
   ]
 

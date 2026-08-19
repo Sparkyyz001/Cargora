@@ -131,14 +131,27 @@ export interface SettlementRow {
 /**
  * Может ли машина с кузовом `vehicle` везти груз, требующий `cargo`.
  *
- * Рефрижератор — закрытый кузов с холодильной установкой, поэтому он везёт
- * и обычный тентованный груз. Обратное неверно: продукты в тенте испортятся.
- * Остальные типы взаимозаменяемыми не считаем.
+ * Матрица из практики, а не «только точное совпадение»:
+ *   рефрижератор  — закрытый кузов с холодильником, берёт и обычный груз;
+ *   тент          — универсальный, берёт и то, что поехало бы на борту;
+ *   борт          — берёт тентованный груз и то, что грузят краном,
+ *                   но не скоропорт: нет холода и защиты от пыли;
+ *   самосвал      — только сыпучее, кузов опрокидывается;
+ *   манипулятор   — свой груз плюс бортовой, кран не мешает.
+ *
+ * Слишком строгое правило (совпадение кузова один в один) убивало матчинг:
+ * встречный груз находился, но отбрасывался из-за формальности.
  */
+const BODY_COMPATIBILITY: Record<BodyType, BodyType[]> = {
+  refrigerator: ["refrigerator", "tent", "flatbed"],
+  tent: ["tent", "flatbed"],
+  flatbed: ["flatbed", "tent", "manipulator"],
+  dump: ["dump"],
+  manipulator: ["manipulator", "flatbed"],
+}
+
 export function bodyTypeCompatible(vehicle: BodyType, cargo: BodyType): boolean {
-  if (vehicle === cargo) return true
-  if (vehicle === "refrigerator" && cargo === "tent") return true
-  return false
+  return BODY_COMPATIBILITY[vehicle]?.includes(cargo) ?? false
 }
 
 // ─── Матрица расстояний ────────────────────────────────────────────────────
