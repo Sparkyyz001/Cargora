@@ -80,26 +80,26 @@ export function Navbar1({
       url: "#",
       items: [
         {
-          title: "Паромные сервисы",
-          description: "Перевозка грузов через 5 стран Каспия",
+          title: "Биржа перевозок",
+          description: "Заявка от магазина, машина от перевозчика",
           icon: <IconTruckDelivery className="size-5 shrink-0" />,
           url: "/#services",
         },
         {
-          title: "Маршруты и порты",
-          description: "Все порты: KZ · TM · AZ · IR · RU",
+          title: "Обратная загрузка",
+          description: "Встречный груз вместо порожнего возврата",
           icon: <IconRoute className="size-5 shrink-0" />,
           url: "/#solutions",
         },
         {
           title: "Как это работает",
-          description: "От заявки до доставки за 4 шага",
+          description: "От заявки до выгрузки за четыре шага",
           icon: <IconUsersGroup className="size-5 shrink-0" />,
           url: "/#how-it-works",
         },
         {
-          title: "Аналитика",
-          description: "Дашборды и отчёты в реальном времени",
+          title: "Аналитика для акимата",
+          description: "Грузопотоки области и разрывы снабжения",
           icon: <IconChartBar className="size-5 shrink-0" />,
           url: "/dashboard",
         },
@@ -110,8 +110,8 @@ export function Navbar1({
       url: "#",
       items: [
         {
-          title: "FAQ и помощь",
-          description: "Ответы на частые вопросы, инструкции",
+          title: "Вопросы и ответы",
+          description: "Как работает подбор, откуда берутся цифры",
           icon: <IconHelp className="size-5 shrink-0" />,
           url: "/faq",
         },
@@ -129,14 +129,14 @@ export function Navbar1({
         },
       ],
     },
-    { title: "Маршруты", url: "/#solutions" },
-    { title: "FAQ", url: "/faq" },
+    { title: "Направления", url: "/#solutions" },
+    { title: "Вопросы", url: "/faq" },
   ],
   mobileExtraLinks = [
     { name: "Условия", url: "/terms" },
     { name: "Конфиденциальность", url: "/privacy" },
     { name: "Контакты", url: "mailto:support@cargora.kz" },
-    { name: "Помощь", url: "/faq" },
+    { name: "Вопросы и ответы", url: "/faq" },
   ],
   auth = {
     login: { text: "Войти", url: "/login" },
