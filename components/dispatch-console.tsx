@@ -17,6 +17,7 @@ import { SimControls, useSimulation } from "@/components/sim-controls"
 import { buildSimTrips, type TripMeta } from "@/lib/sim-trips"
 import { BackhaulCard } from "@/components/backhaul-card"
 import { OrderDetailPanel } from "@/components/order-detail-panel"
+import { TripDetailPanel } from "@/components/trip-detail-panel"
 import { findDriver, fullName, driverInitials } from "@/lib/drivers"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -121,6 +122,11 @@ export function DispatchConsole({
     )
     if (!leg) return trips
 
+    const back = distances.find(
+      (d) => d.from_id === selected.to_settlement_id && d.to_id === selected.from_settlement_id,
+    )
+    const weight = Number(selected.weight ?? 0)
+
     return [
       ...trips,
       {
@@ -136,6 +142,12 @@ export function DispatchConsole({
         fromName: names.get(selected.from_settlement_id) ?? "",
         toName: names.get(selected.to_settlement_id) ?? "",
         km: Number(leg.km),
+        minutes: leg.minutes,
+        plate: "—",
+        bodyType: (selected.body_type ?? "tent") as BodyType,
+        capacityKg: Math.max(weight, 1000),
+        weightKg: weight,
+        returnKm: Number(back?.km ?? leg.km),
       },
     ]
     // sim.hour намеренно не в зависимостях: иначе рейс пересоздавался бы
@@ -402,7 +414,15 @@ export function DispatchConsole({
           </div>
         </div>
 
-        {tab === "trips" ? (
+        {tab === "trips" && soloTrip ? (
+          <div className="flex-1 overflow-y-auto">
+            <TripDetailPanel
+              trip={soloTrip}
+              simHour={sim.hour}
+              onClose={() => setSoloTripId(null)}
+            />
+          </div>
+        ) : tab === "trips" ? (
           <div className="flex-1 overflow-y-auto">
             <div className="border-b px-4 py-2.5">
               <p className="text-xs text-muted-foreground">

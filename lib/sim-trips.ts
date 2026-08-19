@@ -1,4 +1,5 @@
 import { SETTLEMENTS } from "@/lib/mangystau"
+import type { BodyType } from "@/lib/economics"
 import type { SimTrip } from "@/components/fleet-map"
 
 // Рейсы для симуляции суток по области.
@@ -9,6 +10,21 @@ import type { SimTrip } from "@/components/fleet-map"
 // волна уходит с 5 до 9 утра, вторая после обеда.
 
 const DRIVERS = ["Ахмет С.", "Батыр Ж.", "Нурлан Б.", "Арман Т.", "Серик К.", "Дауит М."]
+
+/** Машины парка: госномер, кузов, грузоподъёмность. */
+const FLEET: { plate: string; bodyType: BodyType; capacityKg: number }[] = [
+  { plate: "A 123 BCA 16", bodyType: "refrigerator", capacityKg: 10_000 },
+  { plate: "B 456 KMA 16", bodyType: "tent", capacityKg: 20_000 },
+  { plate: "C 789 PHA 16", bodyType: "tent", capacityKg: 20_000 },
+  { plate: "M 654 OPA 16", bodyType: "dump", capacityKg: 25_000 },
+  { plate: "K 987 AXA 16", bodyType: "refrigerator", capacityKg: 5_000 },
+  { plate: "P 147 CBA 16", bodyType: "flatbed", capacityKg: 20_000 },
+  { plate: "T 258 MHA 16", bodyType: "dump", capacityKg: 25_000 },
+  { plate: "R 369 KTA 16", bodyType: "refrigerator", capacityKg: 5_000 },
+  { plate: "S 741 BHA 16", bodyType: "manipulator", capacityKg: 12_000 },
+  { plate: "N 852 OKA 16", bodyType: "tent", capacityKg: 20_000 },
+  { plate: "L 963 PMA 16", bodyType: "tent", capacityKg: 10_000 },
+]
 
 const CARGO = [
   "Продукты питания",
@@ -63,6 +79,14 @@ export type TripMeta = SimTrip & {
   fromName: string
   toName: string
   km: number
+  minutes: number
+  plate: string
+  bodyType: BodyType
+  capacityKg: number
+  /** Загрузка машины по этому рейсу, кг. */
+  weightKg: number
+  /** Порожнее плечо, если возвращаться пустым. */
+  returnKm: number
 }
 
 /**
@@ -100,6 +124,9 @@ export function buildSimTrips(
     const morning = rand() < 0.65
     const departHour = morning ? 5 + rand() * 4.5 : 13 + rand() * 4
 
+    const vehicle = FLEET[Math.floor(rand() * FLEET.length)]
+    const back = distances.get(`${toId}-${fromId}`)
+
     trips.push({
       id: i + 1,
       label: `${fromName} → ${toName}`,
@@ -112,6 +139,13 @@ export function buildSimTrips(
       fromName,
       toName,
       km: leg.km,
+      minutes: leg.minutes,
+      plate: vehicle.plate,
+      bodyType: vehicle.bodyType,
+      capacityKg: vehicle.capacityKg,
+      // Загрузка 55–95% от грузоподъёмности — машины редко ходят полными
+      weightKg: Math.round(vehicle.capacityKg * (0.55 + rand() * 0.4)),
+      returnKm: back?.km ?? leg.km,
     })
   }
 
