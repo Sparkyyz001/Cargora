@@ -243,71 +243,10 @@ function LoginContent() {
             </p>
           </div>
 
-          {/* Social buttons */}
-          <div className="flex flex-col gap-3">
-            <Button
-              variant="outline"
-              className="w-full gap-3 cursor-pointer"
-              onClick={() => handleSocial("google")}
-              disabled={!!socialLoading}
-            >
-              {socialLoading === "google" ? (
-                <span className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              ) : (
-                <GoogleIcon />
-              )}
-              Войти через Google
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full gap-3 cursor-pointer"
-              onClick={() => handleSocial("linkedin")}
-              disabled={!!socialLoading}
-            >
-              {socialLoading === "linkedin" ? (
-                <span className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              ) : (
-                <LinkedInIcon />
-              )}
-              Войти через LinkedIn
-            </Button>
-          </div>
-
-          <div className="my-6 flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">или</span>
-            <Separator className="flex-1" />
-          </div>
-
-          {/* Mode toggle */}
-          <div className="flex gap-1 rounded-lg border p-1 mb-5">
-            <button
-              type="button"
-              onClick={() => { setMode("email"); setPhoneStep("input") }}
-              className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
-                mode === "email"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Email
-            </button>
-            <button
-              type="button"
-              onClick={() => { setMode("phone"); setPhoneStep("input") }}
-              className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
-                mode === "phone"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Телефон
-            </button>
-          </div>
-
-          {/* Email form */}
-          {mode === "email" && (
-            <form onSubmit={handleEmailSubmit} className="flex flex-col gap-4">
+          {/* Вход по почте — единственный включённый способ.
+              Google, LinkedIn и вход по SMS убраны: провайдеры в проекте
+              Supabase не подключены, и кнопка отдавала бы ошибку. */}
+          <form onSubmit={handleEmailSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -348,83 +287,8 @@ function LoginContent() {
                   </span>
                 ) : "Войти"}
               </Button>
-            </form>
-          )}
+          </form>
 
-          {/* Phone form — step 1: enter phone */}
-          {mode === "phone" && phoneStep === "input" && (
-            <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="phone">Номер телефона</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+7 999 000-00-00"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  autoComplete="tel"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Введите в международном формате: +7, +375, +380…
-                </p>
-              </div>
-              <Button type="submit" className="w-full cursor-pointer" disabled={phoneLoading}>
-                {phoneLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Отправка...
-                  </span>
-                ) : "Получить код"}
-              </Button>
-            </form>
-          )}
-
-          {/* Phone form — step 2: enter OTP */}
-          {mode === "phone" && phoneStep === "otp" && (
-            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="otp">Код из SMS</Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="000000"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  autoComplete="one-time-code"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Код отправлен на {phone}
-                </p>
-              </div>
-              <Button type="submit" className="w-full cursor-pointer" disabled={phoneLoading}>
-                {phoneLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Проверка...
-                  </span>
-                ) : "Войти"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full cursor-pointer"
-                onClick={() => { setPhoneStep("input"); setOtp("") }}
-              >
-                ← Изменить номер
-              </Button>
-            </form>
-          )}
-
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Продолжая, вы соглашаетесь с{" "}
-            <Link href="/terms" className="hover:underline underline-offset-4">условиями использования</Link>{" "}
-            и{" "}
-            <Link href="/privacy" className="hover:underline underline-offset-4">политикой конфиденциальности</Link>.
-          </p>
         </div>
       </div>
     </div>

@@ -262,22 +262,8 @@ export default function RegisterPage() {
                 </p>
               </div>
 
-              <Button
-                variant="outline"
-                className="w-full gap-3 cursor-pointer"
-                onClick={handleSocial}
-                disabled={!!socialLoading}
-              >
-                {socialLoading === "google" ? <Spinner /> : <GoogleIcon />}
-                Зарегистрироваться через Google
-              </Button>
-
-              <div className="my-5 flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">или продолжите с email</span>
-                <Separator className="flex-1" />
-              </div>
-
+              {/* Регистрация через Google убрана: провайдер в проекте
+                  Supabase не подключён, кнопка отдавала бы ошибку. */}
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-2">
