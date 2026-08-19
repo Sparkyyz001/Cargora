@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "motion/react"
 import {
-  ChevronDown, Send, Ship, CreditCard, ShieldCheck,
+  ChevronDown, Send, Truck, CreditCard, ShieldCheck,
   BarChart3, Users, Zap, Mail, MessageCircle,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 // ─── Data ─────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { id: "Паромные рейсы",  icon: Ship,        color: "text-sky-500",    bg: "bg-sky-500/10"    },
+  { id: "Перевозки по области", icon: Truck,  color: "text-orange-600", bg: "bg-orange-600/10" },
   { id: "Тарифы и оплата", icon: CreditCard,  color: "text-green-500",  bg: "bg-green-500/10"  },
   { id: "Безопасность",    icon: ShieldCheck, color: "text-violet-500", bg: "bg-violet-500/10" },
   { id: "Платформа",       icon: BarChart3,   color: "text-orange-500", bg: "bg-orange-500/10" },
@@ -245,7 +245,7 @@ export default function FaqPage() {
           className="mx-auto max-w-2xl"
         >
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm font-medium shadow-xs">
-            <Ship className="size-3.5 text-orange-500" />
+            <Truck className="size-3.5 text-orange-500" />
             Поддержка Cargora
           </div>
 
