@@ -80,6 +80,9 @@ export function DispatchConsole({
   const [match, setMatch] = React.useState<MatchResponse | null>(null)
   const [matchLoading, setMatchLoading] = React.useState(false)
   const [taking, setTaking] = React.useState(false)
+  // Час выезда машины по открытой заявке фиксируется один раз: если его
+  // пересчитывать, при каждом опросе списка машина прыгает в начало пути
+  const [orderDepartHour, setOrderDepartHour] = React.useState(0)
   const [flash, setFlash] = React.useState(false)
   const [tab, setTab] = React.useState<"orders" | "trips">("orders")
   const [soloTripId, setSoloTripId] = React.useState<number | null>(null)
@@ -135,7 +138,7 @@ export function DispatchConsole({
         fromId: selected.from_settlement_id,
         toId: selected.to_settlement_id,
         // Выезд — с текущего момента симуляции, чтобы машина тронулась по play
-        departHour: sim.hour,
+        departHour: orderDepartHour,
         durationHours: Math.max(0.4, (leg.minutes / 60) * 1.3),
         cargo: selected.cargo_type,
         driver: selected.driver ?? "—",
@@ -150,10 +153,7 @@ export function DispatchConsole({
         returnKm: Number(back?.km ?? leg.km),
       },
     ]
-    // sim.hour намеренно не в зависимостях: иначе рейс пересоздавался бы
-    // каждый тик и машина стояла бы на месте
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, trips, distances, names])
+  }, [selected, trips, distances, names, orderDepartHour])
 
   // Маршрут выбранной заявки по реальной дороге — из предрассчитанной
   // геометрии OSM, без обращения к сети
@@ -195,7 +195,15 @@ export function DispatchConsole({
         try { navigator.vibrate?.([140, 70, 140]) } catch {}
       }
       first = false
-      setOrders(fresh)
+
+      // Обновляем состояние только если список реально изменился: иначе
+      // новые ссылки на объекты пересоздают маршруты и сбрасывают машину
+      setOrders((prev) => {
+        const same =
+          prev.length === fresh.length &&
+          prev.every((p, i) => p.id === fresh[i].id && p.status === fresh[i].status)
+        return same ? prev : fresh
+      })
     }
 
     pull()
@@ -229,6 +237,7 @@ export function DispatchConsole({
     }
     setSelectedId(order.id)
     setMatch(null)
+    setOrderDepartHour(sim.hour)
 
     if (order.from_settlement_id == null || order.to_settlement_id == null) return
 

@@ -42,15 +42,63 @@ const townIcon = (r: number, remote: boolean) =>
     </svg>`,
   )
 
-/** Точка на маршруте по доле пути 0..1. */
-function pointAt(pts: [number, number][], t: number): [number, number] {
-  const clamped = Math.min(1, Math.max(0, t))
-  return pts[Math.round(clamped * (pts.length - 1))]
+/**
+ * Накопленные длины отрезков маршрута.
+ *
+ * Без них движение считается по номеру точки, а не по расстоянию: у плеча
+ * в 150 км всего 17 точек, поэтому машина прыгала бы по 9 км за шаг.
+ * Длины кэшируются — маршруты неизменны, пересчитывать их каждый тик незачем.
+ */
+const lengthCache = new WeakMap<[number, number][], { cum: number[]; total: number }>()
+
+function cumulative(pts: [number, number][]) {
+  const hit = lengthCache.get(pts)
+  if (hit) return hit
+
+  const cum = [0]
+  let total = 0
+  for (let i = 1; i < pts.length; i++) {
+    const dx = (pts[i][0] - pts[i - 1][0]) * Math.cos((pts[i][1] * Math.PI) / 180)
+    const dy = pts[i][1] - pts[i - 1][1]
+    total += Math.sqrt(dx * dx + dy * dy)
+    cum.push(total)
+  }
+
+  const value = { cum, total }
+  lengthCache.set(pts, value)
+  return value
 }
 
-/** Часть маршрута, уже пройденная к доле пути t. */
+/** Точка на маршруте по доле пройденного расстояния 0..1, с интерполяцией. */
+function pointAt(pts: [number, number][], t: number): [number, number] {
+  const clamped = Math.min(1, Math.max(0, t))
+  const { cum, total } = cumulative(pts)
+  if (total === 0) return pts[0]
+
+  const target = clamped * total
+  let i = 1
+  while (i < cum.length - 1 && cum[i] < target) i++
+
+  const segStart = cum[i - 1]
+  const segLen = cum[i] - segStart
+  const f = segLen > 0 ? (target - segStart) / segLen : 0
+
+  const a = pts[i - 1]
+  const b = pts[i]
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]
+}
+
+/** Пройденная часть маршрута до доли t, с точной конечной точкой. */
 function sliceTo(pts: [number, number][], t: number): [number, number][] {
-  return pts.slice(0, Math.max(1, Math.round(Math.min(1, t) * (pts.length - 1))) + 1)
+  const clamped = Math.min(1, Math.max(0, t))
+  const { cum, total } = cumulative(pts)
+  if (total === 0) return [pts[0]]
+
+  const target = clamped * total
+  let i = 1
+  while (i < cum.length - 1 && cum[i] < target) i++
+
+  return [...pts.slice(0, i), pointAt(pts, clamped)]
 }
 
 export type SimTrip = {
@@ -85,7 +133,7 @@ export function FleetMap({ trips, simHour, focusRoute, backhaulRoute, soloTripId
   const mapglRef = React.useRef<MapGL | null>(null)
   const baseRef = React.useRef<Destroyable[]>([])
   const lanesRef = React.useRef<Destroyable[]>([])
-  const truckRef = React.useRef<Map<number, { marker: MarkerInst; line: Destroyable | null }>>(new Map())
+  const truckRef = React.useRef<Map<number, { marker: MarkerInst; line: Destroyable | null; ticks: number }>>(new Map())
   const focusRef = React.useRef<Destroyable[]>([])
 
   // ── Инициализация: карта, посёлки, фоновые нитки маршрутов ──
@@ -188,14 +236,20 @@ size: [0, 0],
       const passed = sliceTo(road, progress)
 
       if (existing) {
+        // Маркер двигаем каждый тик — он лёгкий. Пройденный след
+        // пересоздаём раз в 20 тиков: полилиния тяжелее, и на 34 рейсах
+        // её постоянное пересоздание роняло плавность
         existing.marker.setCoordinates(pos)
-        existing.line?.destroy()
-        existing.line = new mapgl.Polyline(map, {
-          coordinates: passed,
-          width: 4,
-          color: "#f59e0b",
-          zIndex: 8,
-        }) as unknown as Destroyable
+        existing.ticks += 1
+        if (existing.ticks % 20 === 0) {
+          existing.line?.destroy()
+          existing.line = new mapgl.Polyline(map, {
+            coordinates: passed,
+            width: 4,
+            color: "#f59e0b",
+            zIndex: 8,
+          }) as unknown as Destroyable
+        }
       } else {
         truckRef.current.set(trip.id, {
           marker: new mapgl.Marker(map, {
@@ -211,6 +265,7 @@ size: [0, 0],
             color: "#f59e0b",
             zIndex: 8,
           }) as unknown as Destroyable,
+          ticks: 0,
         })
       }
     }
