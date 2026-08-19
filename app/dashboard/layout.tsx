@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { OrderStatusListener } from "@/components/order-status-listener"
+import { MessageListener } from "@/components/message-listener"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { ensureUserData } from "@/lib/actions/seed"
@@ -45,6 +46,7 @@ export default async function DashboardLayout({
       <SidebarInset>
         <SiteHeader />
         <OrderStatusListener />
+        <MessageListener userId={user?.id ?? null} />
         {children}
       </SidebarInset>
     </SidebarProvider>

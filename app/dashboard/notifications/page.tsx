@@ -1,6 +1,7 @@
 import {
   IconAlertTriangle,
   IconCircleCheck,
+  IconMessageCircle,
   IconPackage,
   IconTruckDelivery,
   IconTruckReturn,
@@ -23,7 +24,7 @@ export const dynamic = "force-dynamic"
 type Event = {
   id: string
   at: number
-  kind: "created" | "taken" | "delivered" | "backhaul" | "incident"
+  kind: "created" | "taken" | "delivered" | "backhaul" | "incident" | "message"
   title: string
   detail: string
 }
@@ -34,6 +35,7 @@ const ICONS: Record<Event["kind"], Icon> = {
   delivered: IconCircleCheck,
   backhaul: IconTruckReturn,
   incident: IconAlertTriangle,
+  message: IconMessageCircle,
 }
 
 const STYLES: Record<Event["kind"], string> = {
@@ -42,6 +44,7 @@ const STYLES: Record<Event["kind"], string> = {
   delivered: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   backhaul: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   incident: "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+  message: "bg-orange-600/15 text-orange-700 dark:text-orange-400",
 }
 
 const KIND_LABEL: Record<Event["kind"], string> = {
@@ -50,6 +53,14 @@ const KIND_LABEL: Record<Event["kind"], string> = {
   delivered: "Доставлено",
   backhaul: "Обратная загрузка",
   incident: "Инцидент",
+  message: "Сообщение",
+}
+
+const ROLE_IN_CHAT: Record<string, string> = {
+  sender: "отправитель",
+  carrier: "перевозчик",
+  driver: "водитель",
+  dispatcher: "диспетчер",
 }
 
 function ago(ms: number) {
@@ -64,13 +75,18 @@ function ago(ms: number) {
 export default async function NotificationsPage() {
   const supabase = await createClient()
 
-  const [ordersRes, settlementsRes] = await Promise.all([
+  const [ordersRes, settlementsRes, messagesRes] = await Promise.all([
     supabase
       .from("orders")
       .select("id,order_number,cargo_type,status,created_at,from_settlement_id,to_settlement_id,tenge_saved,empty_km_saved,matched_backhaul_id,driver")
       .order("created_at", { ascending: false })
       .limit(40),
     supabase.from("settlements").select("id,name"),
+    supabase
+      .from("order_messages")
+      .select("id,order_id,author,role,body,created_at")
+      .order("created_at", { ascending: false })
+      .limit(30),
   ])
 
   const names = new Map((settlementsRes.data ?? []).map((s) => [s.id, s.name]))
@@ -117,6 +133,21 @@ export default async function NotificationsPage() {
     }
   }
 
+  // Переписка по заявкам: диспетчер видит вопросы, даже если не открывал карточку
+  const orderNumbers = new Map(
+    (ordersRes.data ?? []).map((o) => [o.id, o.order_number as string]),
+  )
+
+  for (const m of messagesRes.data ?? []) {
+    events.push({
+      id: `m-${m.id}`,
+      at: new Date(m.created_at as string).getTime(),
+      kind: "message",
+      title: `${m.author}: ${m.body}`,
+      detail: `${orderNumbers.get(m.order_id) ?? "заявка"} · ${ROLE_IN_CHAT[m.role as string] ?? m.role}`,
+    })
+  }
+
   for (const inc of getIncidents()) {
     events.push({
       id: `i-${inc.id}`,
@@ -134,7 +165,7 @@ export default async function NotificationsPage() {
       <div>
         <h1 className="text-xl font-bold">Уведомления</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Всё, что произошло на платформе — заявки, связки, инциденты
+          Всё, что произошло на платформе — заявки, связки, сообщения, инциденты
         </p>
       </div>
 
