@@ -268,6 +268,17 @@ export function OrderChat({
         <div ref={endRef} />
       </div>
 
+      {/* Кто пишет. Две вкладки одного браузера делят сессию, поэтому
+          без этой подписи легко решить, что чат сломан, хотя оба окна
+          просто вошли под одним пользователем */}
+      <div className="flex items-center gap-1.5 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
+        <span>Вы пишете как</span>
+        <span className="font-medium text-foreground">{me.name}</span>
+        <span className={cn("rounded px-1 py-px text-[9px]", ROLE_STYLE[me.role])}>
+          {ROLE_LABEL[me.role]}
+        </span>
+      </div>
+
       {/* Ввод */}
       <form onSubmit={send} className="flex gap-2 border-t p-2">
         <input
