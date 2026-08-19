@@ -12,6 +12,7 @@ import { getOrders } from "@/lib/actions/orders"
 import { DEMO_BASELINE } from "@/lib/demo-baseline"
 import { computeDailySeries, computeOrderStats } from "@/lib/order-stats"
 import { createClient } from "@/lib/supabase/server"
+import { getT } from "@/lib/i18n-server"
 import { formatKzt } from "@/lib/economics"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { DirectionLoadCards } from "@/components/direction-load-cards"
@@ -24,29 +25,14 @@ import { Button } from "@/components/ui/button"
 // не нужны его собственные заявки. Каждая роль видит свой срез, и в
 // заголовке прямо написано, чей это экран.
 
-const ROLE_TITLE: Record<string, { title: string; subtitle: string }> = {
-  sender: {
-    title: "Обзор · Грузоотправитель",
-    subtitle: "Ваши заявки, их статусы и расходы на перевозку",
-  },
-  carrier: {
-    title: "Обзор · Перевозчик",
-    subtitle: "Доступные заявки, ваши рейсы и заработок",
-  },
-  dispatcher: {
-    title: "Обзор · Диспетчер",
-    subtitle: "Картина перевозок по всей области",
-  },
-  driver: {
-    title: "Обзор · Водитель",
-    subtitle: "Ваши рейсы на сегодня",
-  },
-}
-
 export default async function Page() {
   const supabase = await createClient()
 
-  const [orders, { data: { user } }] = await Promise.all([getOrders(), supabase.auth.getUser()])
+  const [orders, { data: { user } }, { t }] = await Promise.all([
+    getOrders(),
+    supabase.auth.getUser(),
+    getT(),
+  ])
 
   let role = "sender"
   if (user) {
@@ -54,6 +40,12 @@ export default async function Page() {
     role = profile?.role ?? "sender"
   }
 
+  const ROLE_TITLE: Record<string, { title: string; subtitle: string }> = {
+    sender: { title: t.overview.sender, subtitle: t.overview.senderSub },
+    carrier: { title: t.overview.carrier, subtitle: t.overview.carrierSub },
+    dispatcher: { title: t.overview.dispatcher, subtitle: t.overview.dispatcherSub },
+    driver: { title: t.overview.driver, subtitle: t.overview.driverSub },
+  }
   const heading = ROLE_TITLE[role] ?? ROLE_TITLE.sender
 
   // Метрики = демо-подложка + реальные заявки: дашборд всегда наполнен,
@@ -96,7 +88,7 @@ export default async function Page() {
 
         <Button asChild size="sm">
           <Link href="/dashboard/dispatch">
-            {role === "carrier" ? "Открыть биржу заявок" : "Карта и трекинг"}
+            {role === "carrier" ? t.overview.openMarket : t.overview.openMap}
           </Link>
         </Button>
       </div>
@@ -104,46 +96,46 @@ export default async function Page() {
       {/* ── Показатели под роль ── */}
       {role === "carrier" ? (
         <TileGrid>
-          <KpiTile span={3} accent="amber" title="Свободных заявок"
+          <KpiTile span={3} accent="amber" title={t.overview.freeOrders}
             value={pending.length} icon={<IconPackage className="size-4" />}
             hint="можно взять прямо сейчас" />
-          <KpiTile span={3} accent="blue" title="Ваших рейсов в пути"
+          <KpiTile span={3} accent="blue" title={t.overview.yourTrips}
             value={inTransit.length} icon={<IconTruckDelivery className="size-4" />}
             hint="груз едет" />
-          <KpiTile span={3} accent="green" title="Порожних км сэкономлено"
+          <KpiTile span={3} accent="green" title={t.overview.emptyKmSaved}
             value={Math.round(savedKm).toLocaleString("ru-RU")} unit="км"
             icon={<IconTruckReturn className="size-4" />} hint="за счёт обратной загрузки" />
-          <KpiTile span={3} accent="green" title="Заработано на связках"
+          <KpiTile span={3} accent="green" title={t.overview.earnedOnPairs}
             value={formatKzt(savedKzt)} icon={<IconCoin className="size-4" />}
             hint="топливо и время, которые не потрачены" />
         </TileGrid>
       ) : role === "dispatcher" ? (
         <TileGrid>
-          <KpiTile span={3} accent="blue" title="Заявок в системе"
+          <KpiTile span={3} accent="blue" title={t.overview.ordersInSystem}
             value={stats.total.toLocaleString("ru-RU")} icon={<IconPackage className="size-4" />}
             hint="за последние 90 дней" />
-          <KpiTile span={3} accent="amber" title="В пути сейчас"
+          <KpiTile span={3} accent="amber" title={t.overview.inTransit}
             value={stats.inTransit} icon={<IconTruckDelivery className="size-4" />}
             hint="грузы в движении по области" />
-          <KpiTile span={3} accent="green" title="Порожних км убрано"
+          <KpiTile span={3} accent="green" title={t.overview.emptyKmSaved}
             value={Math.round(savedKm).toLocaleString("ru-RU")} unit="км"
             icon={<IconRoute className="size-4" />} hint="накоплено платформой" />
-          <KpiTile span={3} accent="green" title="Экономия перевозчикам"
+          <KpiTile span={3} accent="green" title={t.overview.savedForCarriers}
             value={formatKzt(savedKzt)} icon={<IconCoin className="size-4" />}
             hint="топливо и время водителей" />
         </TileGrid>
       ) : (
         <TileGrid>
-          <KpiTile span={3} accent="amber" title="Ждут перевозчика"
+          <KpiTile span={3} accent="amber" title={t.overview.pending}
             value={pending.length} icon={<IconPackage className="size-4" />}
             hint={pending.length > 0 ? "заявки на бирже" : "все заявки разобраны"} />
-          <KpiTile span={3} accent="blue" title="В пути"
+          <KpiTile span={3} accent="blue" title={t.overview.inTransit}
             value={inTransit.length} icon={<IconTruckDelivery className="size-4" />}
             hint="можно отследить на карте" />
-          <KpiTile span={3} accent="green" title="Доставлено"
+          <KpiTile span={3} accent="green" title={t.overview.delivered}
             value={delivered.length} icon={<IconRoute className="size-4" />}
             hint="за всё время" />
-          <KpiTile span={3} accent="slate" title="Отгружено"
+          <KpiTile span={3} accent="slate" title={t.overview.shipped}
             value={totalTons.toFixed(1)} unit="т"
             icon={<IconAlertTriangle className="size-4" />} hint="суммарный вес ваших грузов" />
         </TileGrid>

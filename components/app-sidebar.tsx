@@ -67,34 +67,34 @@ export function AppSidebar({
   // читалось прямо из меню, а не искалось внутри экранов.
   const groups: { label: string; items: NavItem[] }[] = [
     {
-      label: "Операции",
+      label: t.sections.operations,
       items: [
         { title: t.nav.overview, url: "/dashboard", icon: IconDashboard },
-        { title: "Биржа и трекинг", url: "/dashboard/dispatch", icon: IconTruckDelivery },
+        { title: t.pages.dispatch, url: "/dashboard/dispatch", icon: IconTruckDelivery },
         { title: t.nav.orders, url: "/dashboard/orders", icon: IconPackage },
       ],
     },
     {
-      label: "Оптимизация",
+      label: t.sections.optimization,
       items: [
-        { title: "Обратная загрузка", url: "/dashboard/optimization", icon: IconRouteAltLeft },
-        { title: "Отдалённые посёлки", url: "/dashboard/settlements", icon: IconMapPin },
+        { title: t.pages.optimization, url: "/dashboard/optimization", icon: IconRouteAltLeft },
+        { title: t.pages.settlements, url: "/dashboard/settlements", icon: IconMapPin },
       ],
     },
     {
-      label: "Ресурсы",
+      label: t.sections.resources,
       items: [
-        { title: "Контакты", url: "/dashboard/contacts", icon: IconAddressBook },
-        { title: "Расход топлива", url: "/dashboard/fuel", icon: IconGasStation },
-        { title: "Инциденты", url: "/dashboard/issues", icon: IconAlertTriangle },
-        { title: "Уведомления", url: "/dashboard/notifications", icon: IconBell },
+        { title: t.pages.contacts, url: "/dashboard/contacts", icon: IconAddressBook },
+        { title: t.pages.fuel, url: "/dashboard/fuel", icon: IconGasStation },
+        { title: t.pages.issues, url: "/dashboard/issues", icon: IconAlertTriangle },
+        { title: t.pages.notifications, url: "/dashboard/notifications", icon: IconBell },
       ],
     },
     {
-      label: "Аналитика",
+      label: t.sections.analytics,
       items: [
-        { title: "Спрос по направлениям", url: "/dashboard/analytics", icon: IconChartBar },
-        { title: "Дашборд акимата", url: "/dashboard/akimat", icon: IconBuildingBank },
+        { title: t.pages.demand, url: "/dashboard/analytics", icon: IconChartBar },
+        { title: t.pages.akimat, url: "/dashboard/akimat", icon: IconBuildingBank },
       ],
     },
   ]
@@ -140,7 +140,7 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <NewOrderDialog label="Создать заявку" />
+                <NewOrderDialog label={t.pages.createOrder} />
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
@@ -151,7 +151,7 @@ export function AppSidebar({
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>{renderItems(group.items)}</SidebarMenu>
-              {group.label === "Операции" && <NavFleet vehicles={vehicles} />}
+              {group.label === t.sections.operations && <NavFleet vehicles={vehicles} />}
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
