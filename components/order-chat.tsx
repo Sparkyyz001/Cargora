@@ -41,6 +41,28 @@ function timeOf(iso: string) {
   return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
 }
 
+/** «Сегодня», «Вчера» или дата — разделитель между днями переписки. */
+function dayLabel(iso: string): string {
+  const d = new Date(iso)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+
+  const same = (a: Date, b: Date) =>
+    a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
+
+  if (same(d, today)) return "Сегодня"
+  if (same(d, yesterday)) return "Вчера"
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })
+}
+
+/** Инициалы автора для аватара. */
+function authorInitials(name: string): string {
+  const clean = name.replace(/^(ТОО|АО|ИП|КХ)\s*/i, "").replace(/[«»"]/g, "").trim()
+  const parts = clean.split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase()
+}
+
 export function OrderChat({
   orderId,
   driverKey,
@@ -148,37 +170,98 @@ export function OrderChat({
       </div>
 
       {/* Лента */}
-      <div className="flex max-h-64 min-h-32 flex-col gap-2 overflow-y-auto p-3">
+      <div className="flex max-h-72 min-h-36 flex-col gap-1 overflow-y-auto bg-muted/25 p-3">
         {messages.length === 0 ? (
-          <p className="my-auto text-center text-xs text-muted-foreground">
+          <p className="my-auto px-4 text-center text-xs text-muted-foreground">
             Сообщений пока нет. Спросите, где машина, или уточните время подачи —
             переписка сохраняется вместе с заявкой.
           </p>
         ) : (
-          messages.map((m) => {
+          messages.map((m, i) => {
             const mine = m.user_id === me.id
+            const prev = messages[i - 1]
+            const next = messages[i + 1]
+
+            // Разделитель дня, когда переписка переходит на новую дату
+            const newDay =
+              !prev || new Date(prev.created_at).toDateString() !== new Date(m.created_at).toDateString()
+
+            // Подряд идущие сообщения одного автора склеиваем в группу:
+            // имя и аватар показываем только у первого, время — у последнего
+            const groupStart = newDay || !prev || prev.user_id !== m.user_id
+            const groupEnd = !next || next.user_id !== m.user_id ||
+              new Date(next.created_at).toDateString() !== new Date(m.created_at).toDateString()
+
             return (
-              <div key={m.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
+              <React.Fragment key={m.id}>
+                {newDay && (
+                  <div className="my-2 flex items-center gap-2">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {dayLabel(m.created_at)}
+                    </span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                )}
+
                 <div
                   className={cn(
-                    "max-w-[85%] rounded-lg px-3 py-2 text-sm",
-                    mine ? "bg-primary text-primary-foreground" : "bg-muted",
+                    "flex items-end gap-2",
+                    mine ? "flex-row-reverse" : "flex-row",
+                    groupEnd ? "mb-1.5" : "mb-0.5",
                   )}
                 >
-                  {!mine && (
-                    <div className="mb-0.5 flex items-center gap-1.5">
-                      <span className="text-xs font-medium">{m.author}</span>
-                      <span className={cn("rounded px-1 py-px text-[9px]", ROLE_STYLE[m.role])}>
-                        {ROLE_LABEL[m.role]}
-                      </span>
+                  {/* Аватар только у собеседника и только в конце группы —
+                      так лента не рябит повторами */}
+                  {!mine ? (
+                    groupEnd ? (
+                      <div
+                        className={cn(
+                          "grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold",
+                          ROLE_STYLE[m.role],
+                        )}
+                      >
+                        {authorInitials(m.author)}
+                      </div>
+                    ) : (
+                      <div className="size-7 shrink-0" />
+                    )
+                  ) : null}
+
+                  <div className={cn("flex max-w-[78%] flex-col", mine ? "items-end" : "items-start")}>
+                    {groupStart && !mine && (
+                      <div className="mb-1 flex items-center gap-1.5 px-1">
+                        <span className="text-xs font-medium">{m.author}</span>
+                        <span className={cn("rounded px-1 py-px text-[9px]", ROLE_STYLE[m.role])}>
+                          {ROLE_LABEL[m.role]}
+                        </span>
+                      </div>
+                    )}
+
+                    <div
+                      className={cn(
+                        "px-3 py-1.5 text-sm shadow-xs",
+                        mine
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background",
+                        // Скругления как в мессенджерах: угол со стороны
+                        // собеседника «прижат» только у последнего в группе
+                        mine
+                          ? cn("rounded-2xl rounded-br-md", !groupEnd && "rounded-br-2xl")
+                          : cn("rounded-2xl rounded-bl-md", !groupEnd && "rounded-bl-2xl"),
+                      )}
+                    >
+                      <p className="whitespace-pre-wrap break-words">{m.body}</p>
                     </div>
-                  )}
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+
+                    {groupEnd && (
+                      <span className="mt-0.5 px-1 text-[10px] text-muted-foreground">
+                        {timeOf(m.created_at)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="mt-0.5 text-[10px] text-muted-foreground">
-                  {timeOf(m.created_at)}
-                </span>
-              </div>
+              </React.Fragment>
             )
           })
         )}
