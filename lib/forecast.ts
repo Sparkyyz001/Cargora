@@ -29,9 +29,13 @@ export type DirectionForecast = {
   ordersNext24h: number
   /** Час пик: когда спрос максимальный. */
   peak: { ts: string; orders: number }
-  /** Машин заявлено на направление — для расчёта дефицита. */
+  /** Машин заявлено на направление. */
   vehiclesDeclared: number
-  /** Дефицит машин на ближайшие сутки. */
+  /** Сколько рейсов машина успевает сделать за сутки на этом плече. */
+  tripsPerDay: number
+  /** Сколько заявок эти машины закроют за сутки. */
+  capacityNext24h: number
+  /** Незакрытых заявок за сутки. */
   deficit: number
 }
 
@@ -49,19 +53,33 @@ const DIRECTION_IDS = [
   "zhanaozen-zhetybai",
 ] as const
 
-// Названия и плечи — фактические значения из public.distance_matrix
+// Названия и плечи — фактические значения из public.distance_matrix.
+// vehiclesDeclared — сколько машин перевозчики заявили на направление.
 const DIRECTIONS = [
-  { id: "aktau-zhanaozen", name: "Актау → Жанаозен", km: 150.7, vehiclesDeclared: 9 },
-  { id: "zhanaozen-aktau", name: "Жанаозен → Актау", km: 150.7, vehiclesDeclared: 11 },
-  { id: "aktau-shetpe", name: "Актау → Шетпе", km: 162.9, vehiclesDeclared: 5 },
-  { id: "shetpe-aktau", name: "Шетпе → Актау", km: 162.9, vehiclesDeclared: 6 },
-  { id: "aktau-kuryk", name: "Актау → Курык", km: 71.0, vehiclesDeclared: 6 },
-  { id: "kuryk-aktau", name: "Курык → Актау", km: 71.0, vehiclesDeclared: 7 },
-  { id: "aktau-fort-shevchenko", name: "Актау → Форт-Шевченко", km: 144.6, vehiclesDeclared: 4 },
-  { id: "aktau-beineu", name: "Актау → Бейнеу", km: 469.5, vehiclesDeclared: 5 },
-  { id: "aktau-zhetybai", name: "Актау → Жетыбай", km: 93.4, vehiclesDeclared: 6 },
-  { id: "zhanaozen-zhetybai", name: "Жанаозен → Жетыбай", km: 75.9, vehiclesDeclared: 4 },
+  { id: "aktau-zhanaozen", name: "Актау → Жанаозен", km: 150.7, vehiclesDeclared: 24 },
+  { id: "zhanaozen-aktau", name: "Жанаозен → Актау", km: 150.7, vehiclesDeclared: 31 },
+  { id: "aktau-shetpe", name: "Актау → Шетпе", km: 162.9, vehiclesDeclared: 14 },
+  { id: "shetpe-aktau", name: "Шетпе → Актау", km: 162.9, vehiclesDeclared: 18 },
+  { id: "aktau-kuryk", name: "Актау → Курык", km: 71.0, vehiclesDeclared: 12 },
+  { id: "kuryk-aktau", name: "Курык → Актау", km: 71.0, vehiclesDeclared: 15 },
+  { id: "aktau-fort-shevchenko", name: "Актау → Форт-Шевченко", km: 144.6, vehiclesDeclared: 9 },
+  { id: "aktau-beineu", name: "Актау → Бейнеу", km: 469.5, vehiclesDeclared: 16 },
+  { id: "aktau-zhetybai", name: "Актау → Жетыбай", km: 93.4, vehiclesDeclared: 11 },
+  { id: "zhanaozen-zhetybai", name: "Жанаозен → Жетыбай", km: 75.9, vehiclesDeclared: 8 },
 ] as const
+
+/**
+ * Сколько рейсов машина успевает сделать за сутки на плече длиной `km`.
+ *
+ * Считаем поездку туда-обратно плюс погрузку-разгрузку. Скорость гружёного
+ * грузовика по области — около 60 км/ч, смена водителя 10 часов.
+ * На коротком плече внутри агломерации машина оборачивается трижды,
+ * на Бейнеу (469 км) не успевает и одного круга в сутки.
+ */
+function tripsPerDay(km: number): number {
+  const roundTripHours = (2 * km) / 60 + 1.5 // 1.5 ч на погрузку и выгрузку
+  return Math.round((10 / roundTripHours) * 10) / 10
+}
 
 const KZ_HOLIDAYS = new Set([
   "1-1", "1-2", "3-8", "3-21", "3-22", "3-23",
@@ -146,6 +164,11 @@ export function forecastDirections(weather: HourlyWeather[]): DirectionForecast[
       hours.slice(0, 24).reduce((sum, h) => sum + h.orders, 0),
     )
 
+    // Дефицит — это незакрытые заявки, а не разница «заявки минус машины»:
+    // одна машина на коротком плече закрывает несколько заявок за сутки.
+    const trips = tripsPerDay(d.km)
+    const capacityNext24h = Math.round(d.vehiclesDeclared * trips)
+
     return {
       id: d.id,
       name: d.name,
@@ -155,7 +178,9 @@ export function forecastDirections(weather: HourlyWeather[]): DirectionForecast[
       ordersNext24h,
       peak: { ts: hours[peakIdx].ts, orders: hours[peakIdx].orders },
       vehiclesDeclared: d.vehiclesDeclared,
-      deficit: Math.max(0, ordersNext24h - d.vehiclesDeclared),
+      tripsPerDay: trips,
+      capacityNext24h,
+      deficit: Math.max(0, ordersNext24h - capacityNext24h),
     }
   })
 }

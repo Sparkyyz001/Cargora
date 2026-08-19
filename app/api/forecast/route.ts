@@ -28,6 +28,8 @@ export async function GET() {
       name: d.name,
       ordersNext24h: d.ordersNext24h,
       vehiclesDeclared: d.vehiclesDeclared,
+      tripsPerDay: d.tripsPerDay,
+      capacityNext24h: d.capacityNext24h,
       deficit: d.deficit,
     }))
 
