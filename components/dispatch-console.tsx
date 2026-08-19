@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import { IconArrowNarrowRight, IconMap2, IconTable } from "@tabler/icons-react"
 
@@ -623,6 +624,12 @@ export function DispatchConsole({
                 onClick={() => takeSingle(selected)}
               >
                 {match?.backhaul ? "Взять без обратной загрузки" : "Принять заявку"}
+              </Button>
+
+              <Button variant="ghost" size="sm" className="w-full" asChild>
+                <Link href={`/dashboard/waybill/${selected.id}`}>
+                  Товарно-транспортная накладная
+                </Link>
               </Button>
 
             </div>

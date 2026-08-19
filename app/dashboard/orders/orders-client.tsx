@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -192,6 +193,11 @@ export function OrdersClient({ orders: initialOrders }: { orders: Order[] }) {
                         {loading === order.id ? "..." : "Груз выгружен"}
                       </Button>
                     )}
+                    {/* Накладная доступна по любой заявке: до рейса её
+                        печатают на погрузку, после — прикладывают к отчёту */}
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/dashboard/waybill/${order.id}`}>Накладная</Link>
+                    </Button>
                     <OrderTrackingDialog order={order} />
                     <Button
                       variant="ghost"
