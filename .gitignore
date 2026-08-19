@@ -45,3 +45,4 @@ presentation/
 # Промежуточный артефакт скрипта матрицы расстояний
 scripts/distance-matrix.json
 scripts/dm-values.sql
+scripts/land-routes.sql
