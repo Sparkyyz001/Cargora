@@ -20,13 +20,6 @@ const IN_TRANSIT = ["В пути", "Жолда"]
 const WAITING    = ["Ожидает отправки", "Жіберілуді күтуде"]
 const DELIVERED  = ["Доставлен", "Жеткізілді"]
 
-const FERRY_DEST = ["туркменбаши", "баку", "алят", "нефтчала", "амирабад"]
-function isFerry(sender: string | null, recipient: string | null) {
-  if (!sender || !recipient) return false
-  return sender.toLowerCase().includes("актау") &&
-    FERRY_DEST.some((k) => recipient.toLowerCase().includes(k))
-}
-
 // ── Sea route geometry ────────────────────────────────────────────
 import type { LatLng } from "@/lib/geo"
 
@@ -137,7 +130,8 @@ function cityLabel(pt: [number, number]) {
 }
 
 // ── Component ─────────────────────────────────────────────────────
-export type LiveMapMode = "land" | "ferry"
+/** Карта показывает только автоперевозки внутри области. */
+export type LiveMapMode = "land"
 
 export function LiveMap({
   orders,
@@ -150,7 +144,6 @@ export function LiveMap({
 }) {
   const containerRef  = React.useRef<HTMLDivElement>(null)
   const [error, setError]             = React.useState<string | null>(null)
-  const [selectedFerry, setSelFerry]  = React.useState<number | null>(null)
   const [selectedLand, setSelLand]    = React.useState<number | null>(null)
 
   const mapRef    = React.useRef<MapInstance | null>(null)
@@ -172,9 +165,10 @@ export function LiveMap({
       if (dead || !containerRef.current) return
       mapglRef.current = mapgl
 
-      // Different center/zoom per mode
-      const center: [number, number] = mode === "land" ? [62.0, 47.0] : [51.5, 41.5]
-      const zoom = mode === "land" ? 4.2 : 5.4
+      // Мангистауская область целиком: от Форт-Шевченко на западе
+      // до Бейнеу на востоке
+      const center: [number, number] = [52.5, 44.0]
+      const zoom = 7
 
       const map = new mapgl.Map(containerRef.current, { center, zoom, key: MAP_KEY! })
       mapRef.current = map
@@ -182,37 +176,7 @@ export function LiveMap({
       const mkLine = (coords: [number, number][], width: number, color: string): Line =>
         new mapgl.Polyline(map, { coordinates: coords, width, color }) as unknown as Line
 
-      if (mode === "ferry") {
-        // ── FERRY routes from orders ─────────────────────────
-        for (const order of orders) {
-          if (!isFerry(order.sender_address, order.recipient_address)) continue
-          const from = findCityBase(order.sender_address)
-          const to   = findCityBase(order.recipient_address)
-
-          if (IN_TRANSIT.includes(order.status) && from && to) {
-            const routePts = bezier(from, to, seaCtrl(from, to, order.order_number))
-            bgRef.current.push(mkLine(routePts, 2.5, "#7dd3fc"))
-            const t0 = stablePct(order.order_number)
-            const prog = mkLine(sliceTo(routePts, t0), 3.5, "#0891b2")
-            bgRef.current.push(prog)
-            progFRef.current.set(order.id, prog)
-            const m = new mapgl.Marker(map, { coordinates: ptAt(routePts, t0), icon: shipIcon("#0891b2"), size: [42,42], anchor: [21,21], zIndex: 10 })
-            odataRef.current.set(order.id, { marker: m, from, to, startPct: t0, routePts })
-
-          } else if (WAITING.includes(order.status) && from) {
-            const routePts = to ? bezier(from, to, seaCtrl(from, to, order.order_number)) : null
-            if (routePts) bgRef.current.push(mkLine(routePts, 1.5, "#bae6fd"))
-            const m = new mapgl.Marker(map, { coordinates: [from.lng, from.lat], icon: waitingPin(), size: [24,32], anchor: [12,32], zIndex: 5 })
-            odataRef.current.set(order.id, { marker: m, from, to: to ?? undefined, isStatic: true })
-
-          } else if (DELIVERED.includes(order.status)) {
-            const coord = to ?? from; if (!coord) continue
-            if (from && to) bgRef.current.push(mkLine(bezier(from, to, seaCtrl(from, to, order.order_number)), 1, "#e0f2fe"))
-            const m = new mapgl.Marker(map, { coordinates: [coord.lng, coord.lat], icon: deliveredPin(), size: [22,29], anchor: [11,29], zIndex: 3 })
-            odataRef.current.set(order.id, { marker: m, from: from ?? undefined, to: coord, isStatic: true })
-          }
-        }
-      } else {
+      {
         // ── LAND routes from Supabase ─────────────────────────
         for (const route of landRoutes) {
           const wpts = route.waypoints as [number, number][]
@@ -286,17 +250,6 @@ export function LiveMap({
     m?.setCenter(pos); m?.setZoom(zoom)
   }
 
-  function handleFerry(orderId: number) {
-    setSelFerry(orderId)
-    const d = odataRef.current.get(orderId); if (!d) return
-    if (!d.isStatic && d.routePts && d.startPct !== undefined) {
-      const hrs = (Date.now() - startRef.current) / 3_600_000
-      flyTo(ptAt(d.routePts, Math.min(0.97, d.startPct + hrs * 0.06)), 6)
-    } else {
-      const c = d.from ?? d.to; if (c) flyTo([c.lng, c.lat], 6)
-    }
-  }
-
   function handleLand(id: number) {
     setSelLand(id)
     const d = ldataRef.current.get(id); if (!d) return
@@ -306,15 +259,8 @@ export function LiveMap({
   }
 
   // ── Derived ───────────────────────────────────────────────────
-  const ferryOrders = orders.filter((o) => isFerry(o.sender_address, o.recipient_address))
-  const selFO = selectedFerry != null ? orders.find((o) => o.id === selectedFerry) ?? null : null
   const selLR = selectedLand != null ? landRoutes.find((r) => r.id === selectedLand) ?? null : null
 
-  const fCnt = {
-    transit: ferryOrders.filter((o) => IN_TRANSIT.includes(o.status)).length,
-    waiting: ferryOrders.filter((o) => WAITING.includes(o.status)).length,
-    done: ferryOrders.filter((o) => DELIVERED.includes(o.status)).length,
-  }
   const lCnt = {
     transit: landRoutes.filter((r) => r.status === "В пути").length,
     waiting: landRoutes.filter((r) => r.status === "Ожидает отправки").length,
@@ -325,7 +271,6 @@ export function LiveMap({
     <div className="flex h-full overflow-hidden">
       {/* ── Left panel ── */}
       <div className="flex w-80 shrink-0 flex-col border-r bg-background">
-        {mode === "land" ? (
           /* ── LAND panel ── */
           <>
             <div className="shrink-0 border-b px-3 py-2.5">
@@ -353,57 +298,6 @@ export function LiveMap({
               </>
             )}
           </>
-        ) : (
-          /* ── FERRY panel ── */
-          <>
-            <div className="shrink-0 border-b px-3 py-2.5">
-              <p className="mb-2 text-sm font-semibold">Паромы · Каспийское море</p>
-              <div className="flex flex-wrap gap-1.5">
-                <Chip color="cyan"  label={`В пути · ${fCnt.transit}`} />
-                <Chip color="amber" label={`Ожидает · ${fCnt.waiting}`} />
-                <Chip color="green" label={`Сдано · ${fCnt.done}`} />
-              </div>
-            </div>
-            {selFO ? (
-              <FerryDetail order={selFO} startRef={startRef} onClose={() => setSelFerry(null)} />
-            ) : (
-              <>
-                <div className="flex-1 divide-y divide-border overflow-y-auto">
-                  {ferryOrders.length === 0 && (
-                    <p className="p-6 text-center text-xs text-muted-foreground">
-                      Нет паромных заказов.<br/>
-                      <span className="text-[10px]">Добавьте заказ: отправитель&nbsp;Актау, получатель&nbsp;Туркменбаши / Баку.</span>
-                    </p>
-                  )}
-                  {ferryOrders.map((order) => {
-                    const transit = IN_TRANSIT.includes(order.status)
-                    const wait    = WAITING.includes(order.status)
-                    return (
-                      <button key={order.id} onClick={() => handleFerry(order.id)}
-                        className={cn("w-full cursor-pointer px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
-                          selectedFerry === order.id && "bg-muted")}>
-                        <div className="mb-0.5 flex items-center justify-between gap-2">
-                          <span className="font-mono text-xs font-semibold">{order.order_number}</span>
-                          <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                            transit && "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-                            wait    && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                            !transit && !wait && "bg-green-600/10 text-green-700 dark:text-green-400")}>
-                            {order.status}
-                          </span>
-                        </div>
-                        <p className="truncate text-[11px] text-muted-foreground">🚢 {order.cargo_type}</p>
-                        <p className="mt-0.5 truncate text-[10px] text-muted-foreground/60">
-                          {order.sender_address?.split(",")[0]} → {order.recipient_address?.split(",")[0]}
-                        </p>
-                      </button>
-                    )
-                  })}
-                </div>
-                <Legend mode="ferry" />
-              </>
-            )}
-          </>
-        )}
       </div>
 
       {/* ── Map ── */}
@@ -544,72 +438,6 @@ function LandDetail({ route, onClose, startRef }: { route: LandRoute; onClose: (
         <InfoSection title="Перевозчик">
           <InfoRow label="Компания"  value={route.carrier} />
           <InfoRow label="Номер ТС"  value={route.vehicle} />
-        </InfoSection>
-      </div>
-    </div>
-  )
-}
-
-// ── Ferry detail ──────────────────────────────────────────────────
-function FerryDetail({ order, startRef, onClose }: { order: Order; startRef: React.RefObject<number>; onClose: () => void }) {
-  const transit = IN_TRANSIT.includes(order.status)
-  const wait    = WAITING.includes(order.status)
-  const hrs = (Date.now() - (startRef.current ?? Date.now())) / 3_600_000
-  const pct = transit ? Math.round(Math.min(0.97, stablePct(order.order_number) + hrs * 0.06) * 100) : wait ? 0 : 100
-
-  return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex items-center border-b px-3 py-2">
-        <button onClick={onClose}
-          className="flex items-center gap-1 rounded px-1.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-          ← Все рейсы
-        </button>
-      </div>
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-xl font-bold">{order.order_number}</span>
-          <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold",
-            transit && "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400",
-            wait    && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-            !transit && !wait && "bg-green-600/15 text-green-700 dark:text-green-400")}>
-            {order.status}
-          </span>
-        </div>
-        <div className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-3">
-          <span className="mt-0.5 text-2xl">🚢</span>
-          <div>
-            <p className="font-medium leading-tight">{order.cargo_type}</p>
-            <p className="text-xs text-muted-foreground">Паромный маршрут · Каспийское море</p>
-          </div>
-        </div>
-        <div>
-          <div className="mb-1.5 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Прогресс</span>
-            <span className="font-semibold tabular-nums">{pct}%</span>
-          </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-cyan-500 transition-all" style={{ width: `${pct}%` }} />
-          </div>
-          <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-            <span>{order.sender_address?.split(",")[0]}</span>
-            <span>{order.recipient_address?.split(",")[0]}</span>
-          </div>
-        </div>
-        <InfoSection title="Отправитель">
-          <InfoRow label="Компания" value={order.sender_name} />
-          <InfoRow label="Адрес"    value={order.sender_address} />
-          {order.sender_phone && <InfoRow label="Телефон" value={order.sender_phone} />}
-        </InfoSection>
-        <InfoSection title="Получатель">
-          <InfoRow label="Компания" value={order.recipient_name} />
-          <InfoRow label="Адрес"    value={order.recipient_address} />
-          {order.recipient_phone && <InfoRow label="Телефон" value={order.recipient_phone} />}
-        </InfoSection>
-        <InfoSection title="Детали">
-          <InfoRow label="Создан"   value={fmtDate(order.created_at)} />
-          {order.weight && <InfoRow label="Вес"    value={fmtWeight(order.weight)!} />}
-          {order.volume && <InfoRow label="Объём"  value={`${order.volume} м³`} />}
-          {order.delivery_date && <InfoRow label="Срок" value={fmtDate(order.delivery_date)} />}
         </InfoSection>
       </div>
     </div>

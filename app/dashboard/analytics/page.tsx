@@ -32,7 +32,7 @@ export default async function AnalyticsPage() {
         <h1 className="text-xl font-semibold">Аналитика транзита Мангистауской области</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Сводный дашборд: объёмы, направления, типы грузов и загруженность
-          пунктов пропуска — порт Актау, ТМТМ, граница с Туркменистаном
+          направлений внутри области — где сейчас не хватает машин под заявки
         </p>
       </div>
       <DirectionLoadCards />

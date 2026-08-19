@@ -1,11 +1,13 @@
 import { getOrders } from "@/lib/actions/orders"
 import { getLandRoutes } from "@/lib/actions/land-routes"
-import { MapTabs } from "@/components/map-tabs"
+import { LiveMap } from "@/components/live-map"
+
+// Карта показывает перевозки внутри Мангистауской области.
+// Прежний экран с вкладками «Суда Каспия · АИС» и «Паромы» убран: кейс
+// хакатона прямо запрещает решения вокруг порта и международного транзита.
 
 export default async function MapPage() {
-  const [orders, landRoutes] = await Promise.all([
-    getOrders(),
-    getLandRoutes(),
-  ])
-  return <MapTabs orders={orders} landRoutes={landRoutes} />
+  const [orders, landRoutes] = await Promise.all([getOrders(), getLandRoutes()])
+
+  return <LiveMap orders={orders} landRoutes={landRoutes} mode="land" />
 }

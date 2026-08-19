@@ -49,11 +49,11 @@ export async function seedDemoVehicles() {
   if (!user) return { error: "Не авторизован" }
 
   const demoVehicles = [
-    { vehicle_code: "АКТ-01", plate: "А 123 ВС 16", driver: "Ахмет С.", status: "В рейсе" as const, load_percent: 92, route: "Актау → Туркменбаши" },
-    { vehicle_code: "АКТ-02", plate: "В 456 КМ 16", driver: "Батыр Ж.", status: "В рейсе" as const, load_percent: 78, route: "Актау порт → Баку" },
+    { vehicle_code: "АКТ-01", plate: "A 123 BCA 16", driver: "Ахмет С.", status: "В рейсе" as const, load_percent: 92, route: "Актау → Жанаозен" },
+    { vehicle_code: "АКТ-02", plate: "B 456 KMA 16", driver: "Батыр Ж.", status: "В рейсе" as const, load_percent: 78, route: "Актау → Акшукур" },
     { vehicle_code: "АКТ-03", plate: "С 789 РН 16", driver: "Нурлан Б.", status: "Свободна" as const, load_percent: 0, route: "—" },
     { vehicle_code: "АКТ-04", plate: "Н 321 ЕК 16", driver: "Арман Т.", status: "На ТО" as const, load_percent: 0, route: "Сервис, Актау" },
-    { vehicle_code: "БЕЙ-05", plate: "М 654 ОР 16", driver: "Серик К.", status: "В рейсе" as const, load_percent: 95, route: "Бейнеу → Болашак КПП" },
+    { vehicle_code: "ЖАН-05", plate: "M 654 OPA 16", driver: "Серик К.", status: "В рейсе" as const, load_percent: 95, route: "Жетыбай → Жанаозен" },
     { vehicle_code: "БЕЙ-06", plate: "К 987 АХ 16", driver: "Дауит М.", status: "Свободна" as const, load_percent: 0, route: "—" },
   ]
 
