@@ -3,12 +3,14 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
+import { MAP_KEY_MISSING, resolveMapKey } from "@/lib/map-key"
+
 import type { Order } from "@/lib/actions/orders"
 import type { LandRoute } from "@/lib/actions/land-routes"
 import { findCityBase } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 
-const MAP_KEY = process.env.NEXT_PUBLIC_2GIS_API_KEY
+// Ключ 2GIS запрашивается в рантайме — см. lib/map-key.ts
 
 type MapGL       = Awaited<ReturnType<typeof load>>
 type MapInstance = InstanceType<MapGL["Map"]>
@@ -167,12 +169,12 @@ export function LiveMap({
 
   // ── Init map ───────────────────────────────────────────────────
   React.useEffect(() => {
-    if (!MAP_KEY) { setError("NEXT_PUBLIC_2GIS_API_KEY не задан"); return }
     if (!containerRef.current) return
     let dead = false
 
-    load().then((mapgl) => {
+    Promise.all([resolveMapKey(), load()]).then(([mapKey, mapgl]) => {
       if (dead || !containerRef.current) return
+      if (!mapKey) { setError(MAP_KEY_MISSING); return }
       mapglRef.current = mapgl
 
       // Мангистауская область целиком: от Форт-Шевченко на западе
@@ -180,7 +182,7 @@ export function LiveMap({
       const center: [number, number] = [52.5, 44.0]
       const zoom = 7
 
-      const map = new mapgl.Map(containerRef.current, { center, zoom, key: MAP_KEY! })
+      const map = new mapgl.Map(containerRef.current, { center, zoom, key: mapKey })
       mapRef.current = map
 
       const mkLine = (coords: [number, number][], width: number, color: string): Line =>

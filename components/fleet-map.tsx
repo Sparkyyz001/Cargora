@@ -3,6 +3,7 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
+import { MAP_KEY_MISSING, resolveMapKey } from "@/lib/map-key"
 import { SETTLEMENTS } from "@/lib/mangystau"
 import { roadBetween } from "@/lib/route-geometry"
 
@@ -13,7 +14,8 @@ import { roadBetween } from "@/lib/route-geometry"
 // и движение видно из зала. Привязка к реальному времени давала сдвиг
 // в сто метров за минуту показа — то есть маркер стоял намертво.
 
-const MAP_KEY = process.env.NEXT_PUBLIC_2GIS_API_KEY
+// Ключ берётся через resolveMapKey: в бандле его может не быть,
+// если переменную добавили в окружение уже после сборки.
 
 type MapGL = Awaited<ReturnType<typeof load>>
 type MapInstance = InstanceType<MapGL["Map"]>
@@ -138,22 +140,22 @@ export function FleetMap({ trips, simHour, focusRoute, backhaulRoute, soloTripId
 
   // ── Инициализация: карта, посёлки, фоновые нитки маршрутов ──
   React.useEffect(() => {
-    if (!MAP_KEY) {
-      setError("Не задан ключ 2GIS — карта не может быть отрисована")
-      return
-    }
     if (!containerRef.current) return
 
     let dead = false
 
-    load().then((mapgl) => {
+    Promise.all([resolveMapKey(), load()]).then(([mapKey, mapgl]) => {
       if (dead || !containerRef.current) return
+      if (!mapKey) {
+        setError(MAP_KEY_MISSING)
+        return
+      }
       mapglRef.current = mapgl
 
       const map = new mapgl.Map(containerRef.current, {
         center: CENTER,
         zoom: ZOOM,
-        key: MAP_KEY,
+        key: mapKey,
         style: "e05ac437-fcc2-4845-ad74-b1de9ce07555",
       })
       mapRef.current = map

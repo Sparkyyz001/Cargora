@@ -3,10 +3,12 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
+import { MAP_KEY_MISSING, resolveMapKey } from "@/lib/map-key"
+
 import { computeOrderProgress, findCityCoords, interpolateCoords } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 
-const MAP_KEY = process.env.NEXT_PUBLIC_2GIS_API_KEY
+// Ключ 2GIS запрашивается в рантайме — см. lib/map-key.ts
 
 type MapGLNamespace = Awaited<ReturnType<typeof load>>
 type MapInstance = InstanceType<MapGLNamespace["Map"]>
@@ -54,10 +56,6 @@ export function OrderTrackingMap({
   const to = React.useMemo(() => findCityCoords(recipientAddress), [recipientAddress])
 
   React.useEffect(() => {
-    if (!MAP_KEY) {
-      setError("Карта недоступна: добавьте NEXT_PUBLIC_2GIS_API_KEY в .env.local (бесплатный ключ — на dev.2gis.com)")
-      return
-    }
     if (!from || !to) {
       setError("Не удалось определить города отправителя и получателя по адресам заказа")
       return
@@ -68,14 +66,18 @@ export function OrderTrackingMap({
     let destroyed = false
     let map: MapInstance | null = null
 
-    load()
-      .then((mapglAPI) => {
+    Promise.all([resolveMapKey(), load()])
+      .then(([mapKey, mapglAPI]) => {
         if (destroyed || !containerRef.current) return
+        if (!mapKey) {
+          setError(MAP_KEY_MISSING)
+          return
+        }
 
         map = new mapglAPI.Map(containerRef.current, {
           center: [(from.lng + to.lng) / 2, (from.lat + to.lat) / 2],
           zoom: 4.5,
-          key: MAP_KEY,
+          key: mapKey,
         })
 
         new mapglAPI.Marker(map, {
