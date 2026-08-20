@@ -3,7 +3,7 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
-import { MAP_KEY_MISSING, resolveMapKey } from "@/lib/map-key"
+import { MAP_KEY_MISSING, mapLoadError, resolveMapKey } from "@/lib/map-key"
 
 import type { Order } from "@/lib/actions/orders"
 import type { LandRoute } from "@/lib/actions/land-routes"
@@ -216,7 +216,7 @@ export function LiveMap({
           }
         }
       }
-    }).catch(() => { if (!dead) setError("Ошибка загрузки карты 2ГИС") })
+    }).catch((err) => { if (!dead) { console.error("2GIS map:", err); setError(mapLoadError(err)) } })
 
     return () => {
       dead = true

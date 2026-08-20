@@ -3,7 +3,7 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
-import { MAP_KEY_MISSING, resolveMapKey } from "@/lib/map-key"
+import { MAP_KEY_MISSING, mapLoadError, resolveMapKey } from "@/lib/map-key"
 
 import { computeOrderProgress, findCityCoords, interpolateCoords } from "@/lib/geo"
 import { cn } from "@/lib/utils"
@@ -111,8 +111,11 @@ export function OrderTrackingMap({
           zIndex: 10,
         })
       })
-      .catch(() => {
-        if (!destroyed) setError("Не удалось загрузить карту 2ГИС — проверьте ключ и подключение к интернету")
+      .catch((err) => {
+        if (!destroyed) {
+          console.error("2GIS map:", err)
+          setError(mapLoadError(err))
+        }
       })
 
     return () => {

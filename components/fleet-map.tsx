@@ -3,7 +3,7 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
-import { MAP_KEY_MISSING, resolveMapKey } from "@/lib/map-key"
+import { MAP_KEY_MISSING, mapLoadError, resolveMapKey } from "@/lib/map-key"
 import { SETTLEMENTS } from "@/lib/mangystau"
 import { roadBetween } from "@/lib/route-geometry"
 
@@ -186,8 +186,12 @@ size: [0, 0],
         )
       }
 
+    }).catch((err) => {
+      if (!dead) {
+        console.error("2GIS map:", err)
+        setError(mapLoadError(err))
+      }
     })
-
     return () => {
       dead = true
       baseRef.current.forEach((o) => o.destroy())

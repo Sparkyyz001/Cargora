@@ -13,6 +13,17 @@ export const MAP_KEY_MISSING =
   "в переменные окружения (локально — .env.local, на Vercel — Settings → " +
   "Environment Variables) и пересоберите приложение."
 
+/** Причина падения карты человеческим языком — вместе с тем, что сказал 2ГИС. */
+export function mapLoadError(cause: unknown): string {
+  const detail =
+    cause instanceof Error ? cause.message : typeof cause === "string" ? cause : ""
+  return (
+    "Не удалось загрузить карту 2ГИС" +
+    (detail ? `: ${detail}` : "") +
+    ". Проверьте подключение и не блокирует ли браузер mapgl.2gis.com."
+  )
+}
+
 export function resolveMapKey(): Promise<string | null> {
   if (INLINED) return Promise.resolve(INLINED)
   if (pending) return pending
