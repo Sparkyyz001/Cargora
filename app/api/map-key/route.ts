@@ -14,17 +14,24 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return Response.json({ key: null }, { status: 401 })
-
   const key =
     process.env.NEXT_PUBLIC_2GIS_API_KEY ??
     process.env.TWOGIS_API_KEY ??
     process.env.GIS_API_KEY ??
     null
 
-  return Response.json({ key }, { headers: { "Cache-Control": "no-store" } })
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Гостю сам ключ не отдаём, но говорим, задан ли он вообще: иначе
+  // «карта пустая» на проде не отличить от «ключ не доехал до сборки»,
+  // не заходя в кабинет.
+  if (!user) return Response.json({ key: null, configured: key !== null }, { status: 401 })
+
+  return Response.json(
+    { key, configured: key !== null },
+    { headers: { "Cache-Control": "no-store" } },
+  )
 }
