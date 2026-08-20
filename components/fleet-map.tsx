@@ -3,7 +3,13 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
-import { MAP_KEY_MISSING, mapLoadError, resolveMapKey } from "@/lib/map-key"
+import {
+  hasWebGL,
+  MAP_KEY_MISSING,
+  mapLoadError,
+  resolveMapKey,
+  WEBGL_UNAVAILABLE,
+} from "@/lib/map-key"
 import { SETTLEMENTS } from "@/lib/mangystau"
 import { roadBetween } from "@/lib/route-geometry"
 
@@ -141,6 +147,10 @@ export function FleetMap({ trips, simHour, focusRoute, backhaulRoute, soloTripId
   // ── Инициализация: карта, посёлки, фоновые нитки маршрутов ──
   React.useEffect(() => {
     if (!containerRef.current) return
+    if (!hasWebGL()) {
+      setError(WEBGL_UNAVAILABLE)
+      return
+    }
 
     let dead = false
 

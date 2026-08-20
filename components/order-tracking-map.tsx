@@ -3,7 +3,13 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
-import { MAP_KEY_MISSING, mapLoadError, resolveMapKey } from "@/lib/map-key"
+import {
+  hasWebGL,
+  MAP_KEY_MISSING,
+  mapLoadError,
+  resolveMapKey,
+  WEBGL_UNAVAILABLE,
+} from "@/lib/map-key"
 
 import { computeOrderProgress, findCityCoords, interpolateCoords } from "@/lib/geo"
 import { cn } from "@/lib/utils"
@@ -61,6 +67,10 @@ export function OrderTrackingMap({
       return
     }
     if (!containerRef.current) return
+    if (!hasWebGL()) {
+      setError(WEBGL_UNAVAILABLE)
+      return
+    }
 
     setError(null)
     let destroyed = false

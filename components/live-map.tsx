@@ -3,7 +3,13 @@
 import * as React from "react"
 import { load } from "@2gis/mapgl"
 
-import { MAP_KEY_MISSING, mapLoadError, resolveMapKey } from "@/lib/map-key"
+import {
+  hasWebGL,
+  MAP_KEY_MISSING,
+  mapLoadError,
+  resolveMapKey,
+  WEBGL_UNAVAILABLE,
+} from "@/lib/map-key"
 
 import type { Order } from "@/lib/actions/orders"
 import type { LandRoute } from "@/lib/actions/land-routes"
@@ -170,6 +176,7 @@ export function LiveMap({
   // ── Init map ───────────────────────────────────────────────────
   React.useEffect(() => {
     if (!containerRef.current) return
+    if (!hasWebGL()) { setError(WEBGL_UNAVAILABLE); return }
     let dead = false
 
     Promise.all([resolveMapKey(), load()]).then(([mapKey, mapgl]) => {

@@ -13,6 +13,38 @@ export const MAP_KEY_MISSING =
   "в переменные окружения (локально — .env.local, на Vercel — Settings → " +
   "Environment Variables) и пересоберите приложение."
 
+export const WEBGL_UNAVAILABLE =
+  "Карта 2ГИС рисуется через WebGL, а браузер его не даёт. Чаще всего выключено " +
+  "аппаратное ускорение: Chrome → Настройки → Система → «Использовать аппаратное " +
+  "ускорение (при наличии)», затем перезапустить браузер. Если ускорение включено, " +
+  "помогает обновление драйвера видеокарты; в удалённом рабочем столе WebGL часто " +
+  "недоступен вовсе."
+
+/**
+ * Есть ли у браузера WebGL.
+ *
+ * Проверяем сами и заранее: без этого 2ГИС падает уже внутри отрисовки,
+ * и по её сообщению не понять, что чинить надо не ключ и не сеть.
+ */
+export function hasWebGL(): boolean {
+  if (typeof document === "undefined") return false
+  try {
+    const canvas = document.createElement("canvas")
+    const gl =
+      canvas.getContext("webgl2") ??
+      canvas.getContext("webgl") ??
+      canvas.getContext("experimental-webgl")
+    if (!gl) return false
+    // Контекст занимает ресурс видеокарты — освобождаем сразу, иначе
+    // проверка сама съедает один из полутора десятков доступных.
+    const lose = (gl as WebGLRenderingContext).getExtension?.("WEBGL_lose_context")
+    lose?.loseContext()
+    return true
+  } catch {
+    return false
+  }
+}
+
 /** Причина падения карты человеческим языком — вместе с тем, что сказал 2ГИС. */
 export function mapLoadError(cause: unknown): string {
   const detail =
