@@ -1,7 +1,10 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { load } from "@2gis/mapgl"
+
+import type { MapPoint } from "@/components/map-fallback"
 
 import {
   hasWebGL,
@@ -45,6 +48,11 @@ export type OrderTrackingMapProps = {
   deliveryDate: string | null
   className?: string
 }
+
+const MapFallback = dynamic(
+  () => import("@/components/map-fallback").then((m) => m.MapFallback),
+  { ssr: false },
+)
 
 export function OrderTrackingMap({
   senderAddress,
@@ -155,6 +163,36 @@ export function OrderTrackingMap({
     const id = setInterval(tick, LIVE_TICK_MS)
     return () => clearInterval(id)
   }, [from, to, status, createdAt, deliveryDate])
+
+  // Без WebGL показываем ту же перевозку на простой карте: отправитель,
+  // получатель и машина между ними — всё, ради чего трекинг и открывают.
+  if (error && from && to) {
+    const progress = computeOrderProgress({ status, created_at: createdAt, delivery_date: deliveryDate })
+    const truck = interpolateCoords(from, to, progress)
+    const points: MapPoint[] = [
+      { lat: from.lat, lng: from.lng, label: senderAddress ?? "Отправитель", color: "#16a34a", radius: 7 },
+      { lat: to.lat, lng: to.lng, label: recipientAddress ?? "Получатель", color: "#ef4444", radius: 7 },
+      { lat: truck.lat, lng: truck.lng, label: "Машина", color: "#7c3aed", radius: 8, top: true },
+    ]
+
+    return (
+      <div className={cn("aspect-video w-full overflow-hidden rounded-lg border", className)}>
+        <MapFallback
+          center={{ lat: (from.lat + to.lat) / 2, lng: (from.lng + to.lng) / 2 }}
+          zoom={6}
+          points={points}
+          lines={[
+            { points: [from, to].map((p) => ({ lat: p.lat, lng: p.lng })), color: "#7c3aed", width: 3, dashed: true },
+          ]}
+          note={
+            error === WEBGL_UNAVAILABLE
+              ? "Упрощённая карта: браузер не даёт WebGL"
+              : "Упрощённая карта: 2ГИС недоступен"
+          }
+        />
+      </div>
+    )
+  }
 
   if (error) {
     return (

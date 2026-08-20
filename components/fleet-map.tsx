@@ -1,7 +1,10 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { load } from "@2gis/mapgl"
+
+import type { MapLine, MapPoint } from "@/components/map-fallback"
 
 import {
   hasWebGL,
@@ -131,6 +134,11 @@ export type FleetMapProps = {
   /** id выбранного рейса: на карте остаётся только он, остальные скрыты. */
   soloTripId?: number | null
 }
+
+const MapFallback = dynamic(
+  () => import("@/components/map-fallback").then((m) => m.MapFallback),
+  { ssr: false },
+)
 
 export function FleetMap({ trips, simHour, focusRoute, backhaulRoute, soloTripId = null }: FleetMapProps) {
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -379,11 +387,60 @@ size: [0, 0],
     }
   }, [focusRoute, backhaulRoute, ready])
 
+  // ── Данные для запасной карты ──
+  // Считаются теми же формулами, что и на 2ГИС: посёлки, следы рейсов
+  // и машины ровно там же, где они были бы на основной карте.
+  const fallback = React.useMemo(() => {
+    const points: MapPoint[] = SETTLEMENTS.map((s) => ({
+      lat: s.lat,
+      lng: s.lng,
+      label: s.name,
+      color: s.is_remote ? "#f59e0b" : "#64748b",
+      radius: s.is_remote ? 6 : 5,
+    }))
+    const lines: MapLine[] = []
+
+    const toLatLng = (pts: [number, number][]) => pts.map(([lng, lat]) => ({ lat, lng }))
+    const solo = soloTripId != null || Boolean(focusRoute)
+
+    for (const trip of trips) {
+      if (solo && trip.id !== soloTripId) continue
+
+      const road = roadBetween(trip.fromId, trip.toId)
+      if (!road || road.length < 2) continue
+
+      const progress = (simHour - trip.departHour) / trip.durationHours
+      if (progress < 0 || progress > 1) continue
+
+      const [lng, lat] = pointAt(road, progress)
+      lines.push({ points: toLatLng(sliceTo(road, progress)), color: "#ea580c", width: 3 })
+      points.push({ lat, lng, label: trip.label, color: "#ea580c", radius: 7, top: true })
+    }
+
+    if (focusRoute?.length) lines.push({ points: toLatLng(focusRoute), color: "#0891b2", width: 4 })
+    if (backhaulRoute?.length) {
+      lines.push({ points: toLatLng(backhaulRoute), color: "#10b981", width: 3, dashed: true })
+    }
+
+    return { points, lines }
+  }, [trips, simHour, soloTripId, focusRoute, backhaulRoute])
+
+  // 2ГИС не поднялся — нет WebGL, ключа или доступа к mapgl.2gis.com.
+  // Показывать пустоту нельзя: карта нужна прямо сейчас, поэтому область,
+  // рейсы и машины дорисовывает Leaflet, которому видеокарта не нужна.
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-        {error}
-      </div>
+      <MapFallback
+        center={{ lat: CENTER[1], lng: CENTER[0] }}
+        zoom={ZOOM}
+        points={fallback.points}
+        lines={fallback.lines}
+        note={
+          error === WEBGL_UNAVAILABLE
+            ? "Упрощённая карта: браузер не даёт WebGL"
+            : "Упрощённая карта: 2ГИС недоступен"
+        }
+      />
     )
   }
 
